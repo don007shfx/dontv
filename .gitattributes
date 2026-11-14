@@ -3,3 +3,7 @@
 *.jpg binary
 *.apk binary
 *.keystore binary
+# cmd.exe misreads labels and blocks in LF-only batch files.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
