@@ -1,0 +1,49 @@
+<!-- title: dontv: take the ads and tracking out of your Fire TV -->
+<!-- description: dontv takes the ads, tracking and clutter out of your Fire TV Stick 4K Max. Your apps and HDMI inputs stay. No root, and one command undoes it. -->
+<p class="eyebrow">For the Fire TV Stick 4K Max</p>
+<h1>Your TV should do what you paid for.</h1>
+<p class="lead">dontv takes the ads, tracking and clutter out of your Fire TV. Your apps and HDMI inputs stay.</p>
+<div class="btns">
+  <a class="btn primary" href="start.html">Get started</a>
+  <a class="btn" href="blocked.html">See what it blocks</a>
+  <a class="btn" href="{{REPO}}">View on GitHub</a>
+</div>
+<img class="hero-img" src="assets/hero.png" width="1024" height="582" alt="dontv home on a television: a clock, an Apps row with SmartTube, VLC and Prime Video, and an Inputs row with HDMI 1 to 3 and Composite.">
+
+<ul class="stats" aria-label="At a glance">
+  <li><b>0</b> root needed</li>
+  <li><b>0</b> of your apps removed</li>
+  <li><b>{{PACKAGES}}</b> Amazon packages switched off</li>
+  <li><b>1</b> command to undo it all</li>
+</ul>
+
+<h2>What it does</h2>
+<ul class="cards">
+  <li class="card"><h3>Ads, off.</h3><p>Sponsored rows, autoplaying promos, shopping tiles and Amazon's ad services are disabled. Ad tracking and usage reporting are turned off.</p></li>
+  <li class="card"><h3>Watching you, off.</h3><p>Screen fingerprinting (ACR), watch-time tracking, telemetry and experiments are switched off.</p></li>
+  <li class="card"><h3>Surprise updates, off.</h3><p>A small open-source DNS filter on the TV blocks Amazon's telemetry and update servers. It steps aside if Proton VPN or another VPN app is installed.</p></li>
+  <li class="card"><h3>Your apps stay.</h3><p>Nothing you watch is removed unless you name it. Packages are disabled, never deleted.</p></li>
+  <li class="card"><h3>Optional extras.</h3><p>Frame-rate matching for smooth 24p films, and quieter autoplay on Amazon's home screen. Both off unless you choose them.</p></li>
+  <li class="card"><h3>Checks itself.</h3><p>A read-only health check shows memory, storage, which home screen has HOME, and anything an update switched back on.</p></li>
+</ul>
+
+<h2>Pick your home screen.</h2>
+<p>Both launchers stay installed. Only one catches the HOME button at a time, and you can switch whenever you like, or go back to Amazon's.</p>
+<ul class="cards">
+  <li class="card"><h3>dontv home</h3><p>Your apps, your HDMI inputs and a clock. Rows or a grid, wallpapers, icon packs. Open source, no internet access, sells nothing.</p></li>
+  <li class="card"><h3>Projectivy Launcher</h3><p>A popular, more customisable launcher from the Amazon Appstore. dontv hands HOME to it and keeps dontv home ready as a fallback.</p></li>
+  <li class="card"><h3>Amazon's home</h3><p>Still there, with the ads and tracking switched off. One command brings it back.</p></li>
+</ul>
+<pre><code>./scripts/switch-home.sh dumbtv       # dontv home
+./scripts/switch-home.sh projectivy
+./scripts/switch-home.sh amazon
+./scripts/switch-home.sh status       # changes nothing</code></pre>
+<div class="shots">
+  <figure><img src="assets/screens/home.png" width="640" height="360" alt="dontv home in the Rows layout" loading="lazy"><figcaption>Rows</figcaption></figure>
+  <figure><img src="assets/screens/grid.png" width="640" height="360" alt="dontv home in the Grid layout" loading="lazy"><figcaption>Grid</figcaption></figure>
+  <figure><img src="assets/screens/options.png" width="640" height="360" alt="The dontv home Options screen" loading="lazy"><figcaption>Options, all from the remote</figcaption></figure>
+</div>
+
+<h2>One sentence, or a few commands.</h2>
+<p>Ask a coding agent (Claude Code, Codex, Cursor, Gemini and others) to "clean up my Fire TV", or run the scripts yourself from macOS, Linux or Windows. Either way it asks a few questions first, then takes about ten minutes.</p>
+<div class="btns"><a class="btn primary" href="start.html">Get started</a></div>

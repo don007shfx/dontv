@@ -1,0 +1,64 @@
+<!-- title: Get started · dontv -->
+<!-- description: Clean up a Fire TV Stick 4K Max with dontv from macOS, Linux or Windows in about ten minutes. -->
+<p class="eyebrow">Get started</p>
+<h1>Four steps. About ten minutes.</h1>
+<p class="lead">You need a computer and the TV on the same network. Nothing on the TV changes until you say yes.</p>
+<ol class="steps">
+  <li>
+    <h2 id="adb">Turn on ADB debugging</h2>
+    <p>On the TV: <b>Settings → My Fire TV → About</b>, press OK on the device name 7 times, then <b>Settings → My Fire TV → Developer Options → ADB debugging</b>.</p>
+  </li>
+  <li>
+    <h2 id="ip">Find the TV's IP address</h2>
+    <p><b>Settings → My Fire TV → About → Network</b>. It looks like <code>192.168.x.x</code>.</p>
+  </li>
+  <li>
+    <h2 id="install">Install adb and get dontv</h2>
+    <p>Install <a href="https://developer.android.com/tools/releases/platform-tools">Android platform-tools</a> (it includes <code>adb</code>). On Windows, also install <a href="https://git-scm.com/download/win">Git for Windows</a>. Then:</p>
+<pre><code>git clone https://github.com/don007shfx/dontv.git
+cd dontv</code></pre>
+  </li>
+  <li>
+    <h2 id="run">Run it</h2>
+    <h3>macOS and Linux</h3>
+<pre><code>adb connect &lt;tv-ip&gt;:5555        # press Allow on the TV
+./scripts/preflight.sh          # what the TV is and what would change; changes nothing
+./scripts/configure.sh          # a few questions
+./scripts/all.sh --dry-run      # every command the pass would send; changes nothing
+./scripts/all.sh                # asks before each step, reboots the TV twice
+./scripts/verify.sh             # checks the result
+./scripts/health.sh             # memory, storage, launcher, VPN; changes nothing</code></pre>
+    <h3>Windows</h3>
+    <p>The wrapper runs the same scripts through Git Bash, so you don't have to open it. Run these from the <code>dontv</code> folder in Command Prompt or PowerShell:</p>
+<pre><code>adb connect &lt;tv-ip&gt;:5555
+windows\dumbtv preflight
+windows\dumbtv configure
+windows\dumbtv all --dry-run
+windows\dumbtv all
+windows\dumbtv verify</code></pre>
+    <p class="muted">The wrapper keeps its original name, <code>dumbtv</code>, so the commands match the files in the repository. <a href="{{REPO}}/blob/main/windows/README.md">More on Windows</a>.</p>
+    <h3>Or ask a coding agent</h3>
+    <p>Open Claude Code, Codex, Cursor, Gemini or similar in the <code>dontv</code> folder and say: <i>"Clean up my Fire TV. Its IP address is …"</i>. It follows the repository's <a href="{{REPO}}/blob/main/AGENTS.md">AGENTS.md</a> and asks before changing anything.</p>
+  </li>
+</ol>
+
+<h2 id="choices">What it asks you</h2>
+<div class="table-wrap"><table>
+<caption>configure.sh questions. Answers are saved in dumbtv.conf.</caption>
+<thead><tr><th scope="col">Question</th><th scope="col">Default</th></tr></thead>
+<tbody>
+<tr><td>Do you watch Prime Video?</td><td>yes: its servers stay reachable</td></tr>
+<tr><td>Keep Alexa and the voice button?</td><td>yes</td></tr>
+<tr><td>Replace Amazon's home screen?</td><td>yes</td></tr>
+<tr><td>Open Projectivy Launcher instead of dontv home? Both stay installed.</td><td>no: dontv home</td></tr>
+<tr><td>Run the DNS filter on the TV?</td><td>yes; skipped when Proton VPN or another VPN app is on the TV</td></tr>
+<tr><td>Replace the YouTube app with SmartTube?</td><td>no</td></tr>
+<tr><td>Match the TV's output to each video's frame rate?</td><td>no</td></tr>
+<tr><td>Also turn off the generic autoplay settings on Amazon's home?</td><td>no</td></tr>
+<tr><td>Any apps you want removed?</td><td>none</td></tr>
+</tbody></table></div>
+<p>Every script that changes the TV takes <code>--dry-run</code> and asks before its first change. <code>preflight.sh</code>, <code>verify.sh</code>, <code>health.sh</code> and <code>switch-home.sh status</code> never change anything.</p>
+
+<h2 id="undo">Undo it all</h2>
+<pre><code>./scripts/restore.sh          # Windows: windows\dumbtv restore</code></pre>
+<p>Stuck? See <a href="help.html">Help</a>.</p>

@@ -1,0 +1,14 @@
+<!-- title: Devices · dontv -->
+<!-- description: dontv is built for the Fire TV Stick 4K Max (2nd gen, AFTKRT). Devices on dumbtv's tested list will likely work too. -->
+<p class="eyebrow">Devices</p>
+<h1>Built for the Fire TV Stick 4K Max.</h1>
+<div class="table-wrap"><table>
+<caption>Devices dontv is built for</caption>
+<thead><tr><th scope="col">Device</th><th scope="col">Model</th><th scope="col">Fire OS</th><th scope="col">Notes</th></tr></thead>
+<tbody>
+<tr><td>Fire TV Stick 4K Max, 2nd gen</td><td><code>AFTKRT</code></td><td>8.1</td><td>The device dontv is built for. dumbtv's full pass was tested on it by four owners. <a href="{{REPO}}/blob/main/catalog/devices/fireos-amazon-aftkrt.yaml">Device notes</a></td></tr>
+</tbody></table></div>
+<p class="note">The devices on <a href="https://github.com/humblemuzzu/dumbtv#tested-on">dumbtv's tested list</a> will likely work too, since dontv uses the same scripts and package lists, but they have not been tested with dontv.</p>
+<h2>Is yours a different model?</h2>
+<p>Run <code>./scripts/preflight.sh</code> first. It reads the model and Fire OS version and shows what would change, without changing anything. Per-model notes from dumbtv's testers are in <a href="{{REPO}}/tree/main/catalog/devices">catalog/devices/</a>.</p>
+<p>After a run, <code>./scripts/contribute.sh</code> writes a device report you can share. Android TV, Google TV, Samsung, LG and Roku are not covered; <a href="{{REPO}}/blob/main/docs/OTHER-TVS.md">here is why, and what you can still do</a>.</p>

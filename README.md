@@ -9,11 +9,11 @@
 Ads, tracking and clutter out of your Fire TV. Your apps and HDMI inputs stay.</p>
 
 <p align="center">
-  <a href="https://dumbtv.org"><b>dumbtv.org</b></a> ·
-  <a href="https://dumbtv.org/start">Get started</a> ·
-  <a href="https://dumbtv.org/blocked">What it blocks</a> ·
-  <a href="https://dumbtv.org/tv">Devices</a> ·
-  <a href="https://dumbtv.org/help">Get help</a>
+  <a href="https://don007shfx.github.io/dontv/"><b>don007shfx.github.io/dontv</b></a> ·
+  <a href="https://don007shfx.github.io/dontv/start.html">Get started</a> ·
+  <a href="https://don007shfx.github.io/dontv/blocked.html">What it blocks</a> ·
+  <a href="https://don007shfx.github.io/dontv/devices.html">Devices</a> ·
+  <a href="https://don007shfx.github.io/dontv/help.html">Get help</a>
 </p>
 
 <p align="center">
@@ -64,9 +64,10 @@ of memory was free. He had a coding agent clean it up over ADB,
 [shared the scripts](https://x.com/DevMuzzammil/status/2111912547318395338). Owners of
 many other TVs and sticks have since run it and sent back what they found.
 
-> **Note:** the web links in this README (dumbtv.org, the badges, the press links and
-> the release links) still point to the original dumbtv site and repository, not to
-> dontv.
+> **Note:** the links row at the top points to dontv's own site,
+> [don007shfx.github.io/dontv](https://don007shfx.github.io/dontv/). The other web links
+> in this README (the badges, the press links, the release links and the remaining
+> dumbtv.org links) still point to the original dumbtv site and repository.
 
 A huge thank you to [@humblemuzzu](https://github.com/humblemuzzu) for an excellent
 repository. Its careful snapshots, full restore, never-disable lists, device catalog and
@@ -307,7 +308,8 @@ back from the Appstore.
 
 | | |
 |---|---|
-| [dumbtv.org](https://dumbtv.org) | the website: guides, every package, every device |
+| [dontv website](https://don007shfx.github.io/dontv/) | getting started, what it blocks, devices, help; source in [site/](site/) |
+| [dumbtv.org](https://dumbtv.org) | the original dumbtv website: guides, every package, every device |
 | [How it works](docs/HOW-IT-WORKS.md) | each part and why it is needed |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | symptoms and fixes |
 | [FAQ](docs/FAQ.md) | updates, Prime Video, factory reset, is this legal |

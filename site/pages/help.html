@@ -1,0 +1,35 @@
+<!-- title: Help and FAQ · dontv -->
+<!-- description: Undo dontv, check your Fire TV's health, use it with Proton VPN, and what a factory reset does. -->
+<p class="eyebrow">Help</p>
+<h1>Help and FAQ.</h1>
+<p class="lead">Most problems are fixed by one of the commands below. On Windows, use <code>windows\dumbtv &lt;name&gt;</code> instead of <code>./scripts/&lt;name&gt;.sh</code>.</p>
+
+<h2 id="restore">How do I undo everything?</h2>
+<pre><code>./scripts/restore.sh</code></pre>
+<p>It turns every package back on, clears the app and network rules, puts back the settings your TV had before (saved by <code>preflight.sh</code>), switches off the DNS filter and gives HOME back to Amazon. Optional settings such as frame-rate matching go back to the TV's own values. Apps you asked to have uninstalled come back from the Appstore.</p>
+
+<h2 id="health">How do I check it is still working?</h2>
+<pre><code>./scripts/health.sh     # read-only: memory, storage, home screen, VPN
+./scripts/verify.sh     # pass/fail checks</code></pre>
+<p><code>health.sh</code> changes nothing. It shows free memory and storage, which home screen catches HOME, who holds the VPN, settings that drifted, and any package a Fire OS update switched back on. If something came back, run <code>./scripts/all.sh</code> again.</p>
+
+<h2 id="vpn">I use Proton VPN. Will they clash?</h2>
+<p>No. The DNS filter is itself a VPN, and Android runs only one at a time. If Proton VPN or another VPN app is installed, or an app holds always-on VPN, dontv skips the filter and tells you. Everything else still runs: packages are disabled, settings are changed and your launcher is set, and <code>verify.sh</code> skips the DNS checks. Without the filter, Amazon's telemetry and update servers are no longer blocked on the TV; a VPN with its own tracker blocking can cover part of that.</p>
+
+<h2 id="factory-reset">What does a factory reset do?</h2>
+<p>It removes everything dontv did, along with your apps and settings. Nothing is written to <code>/system</code>, so the TV comes back as new. Run the scripts again afterwards.</p>
+
+<h2 id="more">More questions</h2>
+<details><summary>Does it need root? Can it brick my TV?</summary>
+<p>No root: everything runs as the <code>shell</code> user ADB gives you. The scripts never write to <code>/system</code> or touch the bootloader, and refuse to disable the home screen, Settings, inputs, remote pairing or Prime Video. The realistic worst case is a TV that boots to Amazon's home screen, which <code>restore.sh</code> or <code>launcher.sh</code> fixes.</p></details>
+<details><summary>Pressing HOME shows Amazon's home.</summary>
+<p>Run <code>./scripts/switch-home.sh status</code> to see which launcher has HOME, then <code>./scripts/switch-home.sh dumbtv</code> or <code>projectivy</code> to set it again.</p></details>
+<details><summary>How do I update Fire OS?</summary>
+<p>Updates are blocked while the DNS filter runs, because an update switches much of this back on. To update on purpose: <code>./scripts/restore.sh</code>, let the TV update, then <code>./scripts/all.sh</code>.</p></details>
+<details><summary>Will Prime Video, YouTube and the Appstore work?</summary>
+<p>Yes. Prime Video's servers stay reachable unless you say you don't watch it. YouTube and the Appstore are never blocked. YouTube's own ads come from the same servers as the videos, so DNS can't block them; SmartTube is offered as an option.</p></details>
+<details><summary>Does dontv phone home?</summary>
+<p>No. Your computer downloads personalDNSfilter, the launcher and the tracker list; nothing is uploaded. The launcher has no internet permission. This website has no cookies, analytics or tracking.</p></details>
+
+<h2 id="docs">Still stuck?</h2>
+<p>See <a href="{{REPO}}/blob/main/docs/TROUBLESHOOTING.md">Troubleshooting</a> and the <a href="{{REPO}}/blob/main/docs/FAQ.md">full FAQ</a>, or <a href="{{REPO}}/issues">open an issue on GitHub</a>.</p>
