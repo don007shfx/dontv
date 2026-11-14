@@ -1,0 +1,8 @@
+# Opt-in (FRAMERATE=1 in dumbtv.conf): Match Original Frame Rate. The TV switches its
+# output to the video's own rate (24p films without 3:2 pulldown judder) in apps that
+# ask for it: Prime Video, Kodi, Plex, SmartTube and others. The picture blanks for a
+# second while the TV changes mode, which is why it is not on by default.
+# Applied by debloat.sh, which keeps the value it replaced on the TV; restore.sh and a
+# run with FRAMERATE=0 put that value back.
+# From firetv-safe-debloat by roy9611 (MIT), see CREDITS.md.
+global match_content_frame_rate 1

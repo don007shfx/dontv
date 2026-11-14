@@ -15,6 +15,18 @@ if [[ $DNSFILTER == 0 ]]; then
   exit 0
 fi
 
+# personalDNSfilter is a local VPN, and Android runs one VPN at a time: installing it next
+# to Proton VPN (or any other) would push that one aside, or lose the slot to it.
+VPN_APP=$(other_vpn_app)
+if [[ -n $VPN_APP ]]; then
+  VPN_NAME=$(app_name "$VPN_APP")
+  note "another VPN app is on this TV: ${VPN_NAME:-$VPN_APP} ($VPN_APP)"
+  note "Android runs one VPN at a time, so the DNS filter is skipped and that VPN is left alone."
+  note "Everything else dumbtv does works without the filter; verify.sh skips the DNS checks."
+  note "To stop seeing this: ./scripts/configure.sh --dnsfilter 0. To use the filter, uninstall that VPN first."
+  exit 0
+fi
+
 PKG=dnsfilter.android
 APK_VERSION=1506103
 APK_URL=https://f-droid.org/repo/dnsfilter.android_$APK_VERSION.apk

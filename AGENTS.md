@@ -15,7 +15,10 @@ On a Fire TV, over ADB, with no root:
   telemetry and experiment packages; turns off ad tracking and usage reporting.
   Amazon packages are disabled, never uninstalled.
 - **If the owner agrees:** an on-TV DNS filter that blocks Amazon's telemetry and
-  update servers, and dumbtv home in place of Amazon's home screen.
+  update servers, and dumbtv home (or Projectivy Launcher) in place of Amazon's home
+  screen.
+- **Only if the owner asks:** frame-rate matching and the generic home autoplay keys
+  (`--framerate`, `--quiet-home`).
 - **Only if the owner names them:** removing apps, switching off Alexa, replacing
   YouTube with SmartTube.
 
@@ -92,9 +95,12 @@ people take them.
 | 1 | "Do you watch Prime Video?" No blocks the servers it needs. | yes | `--prime 0\|1` |
 | 2 | "Do you use Alexa or the voice button on the remote?" No switches off Alexa and the app that owns the microphone. | keep | `--alexa 0\|1` |
 | 3 | "Replace Amazon's home screen with dumbtv home?" Open source, apps and inputs only, no ads, no internet access. | yes | `--launcher 0\|1` |
-| 4 | "Run the DNS filter on the TV?" It is what stops telemetry and automatic updates. Without it, the protected Amazon packages keep reporting. | yes | `--dnsfilter 0\|1` |
+| 3a | Only if 3 is yes: "dumbtv home or Projectivy Launcher?" Both get installed; this picks which one HOME opens. Projectivy is never downloaded by dumbtv: if it is missing, its Appstore page opens on the TV. | dumbtv | `--home dumbtv\|projectivy` |
+| 4 | "Run the DNS filter on the TV?" It is what stops telemetry and automatic updates. Without it, the protected Amazon packages keep reporting. It is a VPN: if Proton VPN or another VPN app is on the TV, say so, and record no. | yes | `--dnsfilter 0\|1` |
 | 5 | "Are there apps you want removed?" Get names, map them to packages with `data/apps.txt` and `adb shell pm list packages -3`, and read the list back before recording it. | none | `--remove "pkg pkg"` |
 | 6 | "Do you want the YouTube app replaced with SmartTube?" No ads and no Shorts, a different app, same Google account. Ask once; if no, drop it. | no | `--youtube 0\|1` |
+| 7 | "Should the TV switch to each video's frame rate?" Smoother 24p films; the screen blanks for a second when it switches. | no | `--framerate 0\|1` |
+| 8 | "Also switch off the generic autoplay keys on Amazon's home?" Only matters while Amazon's home shows; the featured-row trailer is off either way. | no | `--quiet-home 0\|1` |
 
 `--keep "pkg pkg"` keeps a package that would otherwise be disabled, for an owner
 who wants a specific Amazon feature. Fire OS 6 has one more question
@@ -134,7 +140,28 @@ Step by step instead, in this order:
 6. `./scripts/verify.sh`
 
 Every script that changes the TV takes `--dry-run`, which prints what it would do
-and changes nothing.
+and changes nothing. Run it first and read it back to the owner when they have not
+already said to go ahead.
+
+Changing the home screen later, without the rest of the pass:
+
+```sh
+./scripts/switch-home.sh status                 # read-only
+./scripts/switch-home.sh projectivy --dry-run   # dumbtv | projectivy | amazon
+./scripts/switch-home.sh projectivy -y
+```
+
+Only one HOME catcher (dumbtv home's Guard or Projectivy's accessibility service) may
+be enabled at a time; the scripts enforce it. Never enable Projectivy's service by
+hand next to the Guard. Never write `enabled_notification_listeners` for Projectivy:
+the owner grants that in its own prompt.
+
+`./scripts/health.sh` is a read-only readout (RAM, storage, packages an update switched
+back on, drifted settings, the HOME catcher, the VPN owner). Use it after the TV updated
+itself, before deciding to re-run anything.
+
+From Windows, `windows\dumbtv <script> [flags]` runs the same scripts through Git
+Bash ([windows/README.md](windows/README.md)).
 
 ## Optional: a library banner
 
@@ -182,7 +209,10 @@ path. Use the table below; do not disable more packages.
 
 | What the owner sees | Fix |
 |---|---|
-| Amazon's home screen is back | `./scripts/launcher.sh -y` |
+| Amazon's home screen is back | `./scripts/launcher.sh -y` (or `./scripts/switch-home.sh <choice> -y`) |
+| `verify.sh` says dumbtv home and Projectivy both catch HOME | `./scripts/switch-home.sh <the one they want> -y` |
+| HOME_APP=projectivy and HOME still lands on Amazon's home | in Projectivy: Settings > General > Override current launcher on; then `./scripts/verify.sh` |
+| `dnsfilter.sh` says another VPN app is on the TV | expected with Proton VPN and the like; record `--dnsfilter 0`. Never uninstall their VPN to make room |
 | Amazon's home shows for ~5 s before dumbtv home | `./scripts/launcher.sh -y` (an update reset the alarm setting) |
 | `verify.sh` warns `enabled again` or `back to Amazon's values` | an update undid part of the cleanup: `./scripts/debloat.sh -y` |
 | `verify.sh` warns `off, but the TV needs them` (Prime Video gone, phone app will not pair) | an older dumbtv disabled them: `./scripts/debloat.sh -y` |

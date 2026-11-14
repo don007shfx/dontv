@@ -37,6 +37,9 @@ note "home screen   $(front_activity | awk -F/ '{print $1}')"
 note "free ram      $(dev 'dumpsys meminfo' | sed -n 's/.*Free RAM: *\([0-9,]*K\).*/\1/p' | head -1)"
 note "dns filter    $(present dnsfilter.android && echo installed || echo 'not installed')"
 note "launcher      $(present tv.dumbtv.home && echo 'dumbtv home installed' || echo 'not installed')"
+note "projectivy    $(present "$PROJECTIVY_PKG" && echo installed || echo 'not installed')"
+vpn_app=$(other_vpn_app)
+note "other vpn     ${vpn_app:-none}"
 
 step "the pass would"
 note "disable $(cleanup_list | wc -l | tr -d ' ') Amazon packages, minus anything in never-disable.txt"
@@ -45,12 +48,19 @@ if [[ -n $REMOVE_EXTRA ]]; then note "remove only the apps you named: $REMOVE_EX
 else note "remove none of your apps (none named in dumbtv.conf)"; fi
 note "deny background work + data to $(list_of "$(fos protected.txt)" | wc -l | tr -d ' ') protected packages"
 note "apply $(list_of "$(fos settings.txt)" | wc -l | tr -d ' ') privacy settings"
-if [[ $DNSFILTER == 1 ]]; then
+if [[ $DNSFILTER == 1 && -n $vpn_app ]]; then
+  note "skip the DNS filter: $vpn_app already uses the TV's only VPN slot"
+elif [[ $DNSFILTER == 1 ]]; then
   note "install a DNS filter that blocks Amazon telemetry$([[ $ALEXA == 0 ]] && printf ', Alexa') and the OTA servers"
 fi
-if [[ $LAUNCHER == 1 ]]; then
+if [[ $LAUNCHER == 1 && $HOME_APP == projectivy ]]; then
+  note "install dumbtv home, and give HOME to Projectivy Launcher (HOME_APP=projectivy)"
+elif [[ $LAUNCHER == 1 ]]; then
   note "replace the home screen with dumbtv home (this repo's own launcher, no internet access)"
 fi
+while read -r name state _; do
+  [[ $state == on ]] && note "apply the opt-in tweak $name"
+done < <(optin_tweaks)
 note "reboot twice (about 5 minutes)"
 
 step "not touched, ever"
@@ -75,3 +85,4 @@ fi
 step "next"
 note "./scripts/all.sh            full pass (asks first)"
 note "./scripts/debloat.sh --dry-run   see the exact package commands"
+note "./scripts/health.sh         RAM, storage and what an update switched back on (read-only)"

@@ -23,7 +23,8 @@ SDK=${SDK:-0}
 REINSTALL=${REINSTALL:-0}
 
 # Preferences written by scripts/configure.sh. Absent file = defaults: remove no
-# app, keep Prime Video and Alexa, PRIME=1, ALEXA=1, LAUNCHER=1, DNSFILTER=1.
+# app, keep Prime Video and Alexa, PRIME=1, ALEXA=1, LAUNCHER=1, DNSFILTER=1,
+# HOME_APP=dumbtv, and none of the opt-in tweaks (FRAMERATE=0, QUIET_HOME=0).
 load_conf() {
   KEEP_APPS=${KEEP_APPS:-}
   REMOVE_EXTRA=${REMOVE_EXTRA:-}
@@ -34,12 +35,101 @@ load_conf() {
   SYSTEM_DNS=${SYSTEM_DNS:-0}
   FILTER_AUTOSTART=${FILTER_AUTOSTART:-1}
   DNS_UPSTREAM=${DNS_UPSTREAM:-}
+  HOME_APP=${HOME_APP:-dumbtv}
+  FRAMERATE=${FRAMERATE:-0}
+  QUIET_HOME=${QUIET_HOME:-0}
   [[ -f $CONF ]] && source "$CONF"
   KEEP_APPS=${KEEP_APPS:-}; REMOVE_EXTRA=${REMOVE_EXTRA:-}
   PRIME=${PRIME:-1}; ALEXA=${ALEXA:-1}; LAUNCHER=${LAUNCHER:-1}; DNSFILTER=${DNSFILTER:-1}
   SYSTEM_DNS=${SYSTEM_DNS:-0}
   FILTER_AUTOSTART=${FILTER_AUTOSTART:-1}
   DNS_UPSTREAM=${DNS_UPSTREAM:-}
+  HOME_APP=${HOME_APP:-dumbtv}; FRAMERATE=${FRAMERATE:-0}; QUIET_HOME=${QUIET_HOME:-0}
+  case $HOME_APP in dumbtv|projectivy) ;; *) die "HOME_APP must be dumbtv or projectivy in $CONF, got '$HOME_APP'" ;; esac
+}
+
+# The home screens HOME can open. LAUNCHER=0 keeps Amazon's; otherwise HOME_APP picks
+# dumbtv home or Projectivy Launcher. Both take HOME through their own accessibility
+# service, and only one of the two services is ever enabled (launcher/install.sh).
+PROJECTIVY_PKG=com.spocky.projengmenu
+PROJECTIVY_GUARD=$PROJECTIVY_PKG/$PROJECTIVY_PKG.services.ProjectivyAccessibilityService
+# Projectivy's official listing on the Amazon Appstore. Opened on the TV, never mirrored here.
+# shellcheck disable=SC2034  # used by launcher.sh and switch-home.sh
+PROJECTIVY_STORE="amzn://apps/android?p=$PROJECTIVY_PKG"
+home_pkg() {
+  if [[ $LAUNCHER == 0 ]]; then echo com.amazon.tv.launcher
+  elif [[ $HOME_APP == projectivy ]]; then echo "$PROJECTIVY_PKG"
+  else echo tv.dumbtv.home; fi
+}
+
+# Which home screen catches HOME now: dumbtv, projectivy, both (a fault) or amazon. Read
+# from the accessibility services the TV has enabled; on Fire OS 6 dumbtv home's Keeper
+# holds HOME with none, and launcher/install.sh leaves dumbtv_home=dumbtv for that.
+home_catcher() {
+  local a11y
+  a11y=$(dev1 settings get secure enabled_accessibility_services)
+  case :$a11y: in
+    *:tv.dumbtv.home/.Guard:*|*:tv.dumbtv.home/tv.dumbtv.home.Guard:*)
+      case :$a11y: in *:"$PROJECTIVY_GUARD":*) echo both; return 0 ;; esac
+      echo dumbtv ;;
+    *:"$PROJECTIVY_GUARD":*) echo projectivy ;;
+    *)
+      if [[ $SDK -lt 28 && $(dev1 settings get global dumbtv_home) == dumbtv ]]; then echo dumbtv
+      else echo amazon; fi ;;
+  esac
+}
+
+# Privacy settings debloat.sh applies and verify.sh checks: settings.txt always,
+# settings.alexa.txt with ALEXA=0.
+settings_files() {
+  list_of "$(fos settings.txt)"
+  if [[ $ALEXA == 0 ]]; then list_of "$(fos settings.alexa.txt)"; fi
+}
+
+# Opt-in tweaks, one settings file each: FRAMERATE=1 settings.framerate.txt,
+# QUIET_HOME=1 settings.quiet-home.txt. Prints "name on|off file" per tweak.
+optin_tweaks() {
+  printf 'framerate %s %s\n' "$([[ $FRAMERATE == 1 ]] && echo on || echo off)" "$(fos settings.framerate.txt)"
+  printf 'quiet-home %s %s\n' "$([[ $QUIET_HOME == 1 ]] && echo on || echo off)" "$(fos settings.quiet-home.txt)"
+}
+
+# The value a tweak replaced is kept on the TV itself, in dumbtv_was_<key> in the same
+# namespace (like dumbtv_min_futurity), so restore.sh puts back exactly what that TV had,
+# whichever computer runs it. "unset" means the key did not exist before.
+optin_apply() {
+  local ns=$1 key=$2 value=$3 was
+  was=$(dev1 settings get "$ns" "dumbtv_was_$key")
+  if [[ -z $was || $was == null ]]; then
+    was=$(dev1 settings get "$ns" "$key")
+    [[ -z $was || $was == null ]] && was="unset"
+    acmd settings put "$ns" "dumbtv_was_$key" "$was" >/dev/null
+  fi
+  acmd settings put "$ns" "$key" "$value" >/dev/null
+}
+
+# Puts back the value optin_apply replaced. Returns 1 when dumbtv never changed the key.
+optin_undo() {
+  local ns=$1 key=$2 was
+  was=$(dev1 settings get "$ns" "dumbtv_was_$key")
+  [[ -z $was || $was == null ]] && return 1
+  if [[ $was == unset ]]; then acmd settings delete "$ns" "$key" >/dev/null
+  else acmd settings put "$ns" "$key" "$was" >/dev/null; fi
+  acmd settings delete "$ns" "dumbtv_was_$key" >/dev/null
+  return 0
+}
+
+# A VPN app other than personalDNSfilter (data/vpn-apps.txt, or whatever holds always-on
+# VPN). Android runs one VPN at a time, so the DNS filter would push it aside or lose.
+# Prints the package, or nothing.
+other_vpn_app() {
+  local always installed p
+  always=$(dev1 settings get secure always_on_vpn_app)
+  case $always in ''|null|dnsfilter.android) ;; *) printf '%s\n' "$always"; return 0 ;; esac
+  installed=$(dev 'pm list packages' | tr -d '\r' | sed -n 's/^package://p')
+  for p in $(list_of "$DATA/vpn-apps.txt" | awk '{print $1}'); do
+    grep -qxF "$p" <<<"$installed" && { printf '%s\n' "$p"; return 0; }
+  done
+  return 0
 }
 
 # What debloat.sh disables: the ads and tracking list, plus Alexa only with ALEXA=0.

@@ -373,6 +373,14 @@ protected package. Measured on a Fire OS 7 television:
 
 HOME from an app shows about 0.3 s of black, then this home screen.
 
+### Next to Projectivy Launcher
+
+Projectivy catches HOME with its own accessibility service. `install.sh` removes that
+service when it enables `Guard`, and `install.sh --projectivy` does the reverse
+(switching `Guard` and `min_futurity` off), so the two never fight over a key press.
+`./scripts/switch-home.sh dumbtv|projectivy|amazon` is the front end for both, and
+[docs/PROJECTIVY.md](../docs/PROJECTIVY.md) has the details.
+
 ### Fire OS 6
 
 Fire OS 6.7 refuses third-party accessibility services, so it uses `Keeper`, a

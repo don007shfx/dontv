@@ -74,8 +74,10 @@ class RouteTest(unittest.TestCase):
             )
             pushed = tmp / "pushed" / "dnsfilter.conf"
             lines = pushed.read_text().splitlines() if pushed.exists() else None
+            # `pm list` only reads (the check for another VPN app); everything else here writes.
             touched = [c for c in log.read_text().splitlines()
-                       if c.startswith(("pm ", "appops set", "settings put", "am start"))]
+                       if c.startswith(("pm ", "appops set", "settings put", "am start"))
+                       and not c.startswith("pm list ")]
         self.touched = touched
         return result, lines
 
