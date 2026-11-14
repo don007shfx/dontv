@@ -1,9 +1,11 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
-    <img src="docs/assets/logo-light.svg" alt="dumbtv" width="300">
+    <img src="docs/assets/logo-light.svg" alt="dontv" width="300">
   </picture>
 </p>
+
+<h1 align="center">dontv</h1>
 
 <p align="center"><b>Your TV should do what you paid for.</b><br>
 Ads, tracking and clutter out of your Fire TV. Your apps and HDMI inputs stay.</p>
