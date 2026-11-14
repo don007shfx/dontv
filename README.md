@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
-    <img src="docs/assets/logo-light.svg" alt="dumbtv" width="300">
+    <img src="docs/assets/logo-light.svg" alt="dontv" width="300">
   </picture>
 </p>
 
