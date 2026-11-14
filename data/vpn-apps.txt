@@ -1,0 +1,18 @@
+# VPN apps that would fight personalDNSfilter for Android's single VPN slot. When one is
+# installed (or any app other than the filter holds always-on VPN), dnsfilter.sh warns
+# and skips the filter instead of pushing the other VPN aside, and verify.sh skips the
+# DNS checks. Package names only; add others the same way.
+ch.protonvpn.android                   # Proton VPN
+com.nordvpn.android                    # NordVPN
+com.expressvpn.vpn                     # ExpressVPN
+com.surfshark.vpnclient.android        # Surfshark
+com.privateinternetaccess.android      # Private Internet Access
+com.ixolit.ipvanish                    # IPVanish
+de.mobileconcepts.cyberghost           # CyberGhost
+com.wireguard.android                  # WireGuard
+net.mullvad.mullvadvpn                 # Mullvad
+com.windscribe.vpn                     # Windscribe
+com.tunnelbear.android                 # TunnelBear
+free.vpn.unblock.proxy.turbovpn        # Turbo VPN
+com.cloudflare.onedotonedotonedotone   # Cloudflare 1.1.1.1 / WARP
+com.celzero.bravedns                   # Rethink DNS

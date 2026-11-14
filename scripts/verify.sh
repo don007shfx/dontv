@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Proof that it worked: blocked hosts must answer 0.0.0.0 or NXDOMAIN, everyday
-# hosts must still resolve, and HOME must land on dumbtv home unless the user kept
-# Amazon's. Exit code 0 means every enabled check passed.
+# hosts must still resolve, and HOME must land on the chosen home screen (dumbtv home
+# or Projectivy Launcher) unless the user kept Amazon's. Exit code 0 means every enabled check passed.
 # Usage: ./scripts/verify.sh
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -11,11 +11,17 @@ need_device
 load_conf
 
 fail=0
+# DNSFILTER=1 but another VPN app (Proton VPN, ...) kept dnsfilter.sh from installing the
+# filter: there is nothing to check, and that is not a failure.
+vpn_app=""
+if [[ $DNSFILTER == 1 ]] && ! present dnsfilter.android; then vpn_app=$(other_vpn_app); fi
 printf '\n%-10s %-38s %s\n' '' host result
 printf '%-10s %-38s %s\n' '----------' '--------------------------------------' '----------------------'
 
 if [[ $DNSFILTER == 0 ]]; then
   printf '%-10s %-38s %s\n' skip dns "DNSFILTER=0, not checked"
+elif [[ -n $vpn_app ]]; then
+  printf '%-10s %-38s %s\n' skip dns "another VPN app ($vpn_app) holds the VPN slot; filter skipped"
 else
   # A blocked host answers 0.0.0.0 on personalDNSfilter, but NXDOMAIN on a router's
   # Blocky or Unbound denylist. NXDOMAIN only counts as blocked when an everyday
@@ -61,8 +67,11 @@ else
   futurity=$(dev 'settings get global alarm_manager_constants' | tr -d '\r' | tr ',' '\n' |
     sed -n 's/^min_futurity=//p' | head -1)
 fi
+want=$(home_pkg)
 if [[ $LAUNCHER == 0 ]]; then
   printf '%-10s %-38s %s\n' skip home "LAUNCHER=0, not checked"
+elif [[ $SDK -lt 28 && $HOME_APP == projectivy ]]; then
+  printf '%-10s %-38s %s\n' FAIL home "HOME_APP=projectivy cannot work on Fire OS 6; ./scripts/switch-home.sh dumbtv"; fail=1
 elif [[ $SDK -lt 28 ]]; then
   # Fire OS 6: the Keeper, not the accessibility service, owns HOME.
   keeper=$(dev 'dumpsys activity services tv.dumbtv.home' | grep -c 'isForeground=true' || true)
@@ -81,28 +90,43 @@ else
     *)
       a11y=$(dev "settings --user $current_user get secure enabled_accessibility_services" | tr -d '\r')
       enabled=$(dev "settings --user $current_user get secure accessibility_enabled" | tr -d '\r')
-      case :$a11y: in
-        *:tv.dumbtv.home/.Guard:*|*:tv.dumbtv.home/tv.dumbtv.home.Guard:*)
-          if [[ $enabled == 1 ]]; then
-            if dump=$(dev 'dumpsys accessibility'); then
-              printf '%s\n' "$dump" | guard_bound "$current_user"
-              case $? in 0) hook=bound ;; 1) hook=unbound ;; esac
-            fi
-          else
-            hook=disabled
-          fi ;;
-        *) hook=disabled ;;
-      esac ;;
+      dumbtv_on=0; projectivy_on=0
+      case :$a11y: in *:tv.dumbtv.home/.Guard:*|*:tv.dumbtv.home/tv.dumbtv.home.Guard:*) dumbtv_on=1 ;; esac
+      case :$a11y: in *:"$PROJECTIVY_GUARD":*) projectivy_on=1 ;; esac
+      if [[ $HOME_APP == projectivy ]]; then mine=$projectivy_on; theirs=$dumbtv_on
+      else mine=$dumbtv_on; theirs=$projectivy_on; fi
+      if [[ $mine == 1 && $theirs == 1 ]]; then
+        hook=both
+      elif [[ $mine == 1 ]]; then
+        if [[ $enabled == 1 ]]; then
+          hook=unknown-binding
+          if dump=$(dev 'dumpsys accessibility'); then
+            printf '%s\n' "$dump" | guard_bound "$current_user" "$HOME_APP"
+            case $? in 0) hook=bound ;; 1) hook=unbound ;; esac
+          fi
+          # Projectivy labels its service itself, so a dump that does not name it proves
+          # nothing either way; the HOME key below is the check that counts.
+          [[ $HOME_APP == projectivy && $hook != bound ]] && hook=enabled
+          [[ $hook == unknown-binding ]] && hook=unknown
+        else
+          hook=disabled
+        fi
+      else
+        hook=disabled
+      fi ;;
   esac
   case $hook in
     bound) printf '%-10s %-38s %s\n' ok home "bound, front is ${home:-unknown}" ;;
+    enabled) printf '%-10s %-38s %s\n' ok home "Projectivy's service enabled, front is ${home:-unknown}" ;;
+    both)
+      printf '%-10s %-38s %s\n' FAIL home "dumbtv home and Projectivy both catch HOME; ./scripts/switch-home.sh $HOME_APP"; fail=1 ;;
     unbound)
       printf '%-10s %-38s %s\n' FAIL home "enabled but not bound; see docs/TROUBLESHOOTING.md"; fail=1 ;;
     disabled)
       printf '%-10s %-38s %s\n' FAIL home "hook disabled (front: ${home:-unknown}, wakefulness: ${wake:-?})"; fail=1 ;;
     *) printf '%-10s %-38s %s\n' FAIL home "cannot verify accessibility binding; inspect dumpsys accessibility"; fail=1 ;;
   esac
-  if [[ $futurity != 0 ]]; then
+  if [[ $HOME_APP == dumbtv && $futurity != 0 ]]; then
     # Without it HOME still works, but Amazon's home shows for 5 s first.
     printf '%-10s %-38s %s\n' FAIL home-speed "min_futurity=0 missing; re-run launcher.sh"; fail=1
   fi
@@ -116,10 +140,10 @@ else
   dev 'am start -a android.intent.action.MAIN -c android.intent.category.LEANBACK_SETTINGS' >/dev/null 2>&1 || true
   for i in 1 2 3 4 5 6; do
     away=$(front_activity)
-    [[ -n $away && $away != tv.dumbtv.home/* ]] && break
+    [[ -n $away && $away != "$want"/* ]] && break
     sleep 1
   done
-  if [[ -z $away || $away == tv.dumbtv.home/* ]]; then
+  if [[ -z $away || $away == "$want"/* ]]; then
     printf '%-10s %-38s %s\n' skip home-key "could not leave the home screen; press HOME to check"
   else
     dev 'input keyevent KEYCODE_HOME' >/dev/null 2>&1 || true
@@ -127,10 +151,10 @@ else
     for i in 1 2 3 4 5 6 7 8; do
       sleep 1
       landed=$(front_activity)
-      [[ $landed == tv.dumbtv.home/* ]] && break
+      [[ $landed == "$want"/* ]] && break
     done
     case $landed in
-      tv.dumbtv.home/*) printf '%-10s %-38s %s\n' ok home-key "HOME lands on $landed" ;;
+      "$want"/*) printf '%-10s %-38s %s\n' ok home-key "HOME lands on $landed" ;;
       *) printf '%-10s %-38s %s\n' FAIL home-key "HOME lands on ${landed:-unknown}"; fail=1 ;;
     esac
   fi
@@ -181,6 +205,22 @@ else
   printf '%-10s %-38s %s\n' ok settings "$checked privacy settings as set"
 fi
 
+# The opt-in tweaks (FRAMERATE, QUIET_HOME) that are on.
+drift=""; tweaked=0
+while read -r name state file; do
+  [[ $state == on ]] || continue
+  while read -r _ key value; do
+    tweaked=$((tweaked+1))
+    now=$(printf '%s\n' "$current" | awk -v k="$key" 'index($0, k "=") == 1 { print substr($0, length(k) + 2); exit }')
+    [[ $now == "$value" ]] || drift="$drift $key=${now:-unset} ($name)"
+  done < <(list_of "$file")
+done < <(optin_tweaks)
+if [[ -n $drift ]]; then
+  printf '%-10s %-38s %s\n' warn tweaks "not as set:$drift; run debloat.sh"
+elif [[ $tweaked -gt 0 ]]; then
+  printf '%-10s %-38s %s\n' ok tweaks "$tweaked opt-in settings as set"
+fi
+
 # lockdown.sh's Data Saver is what keeps the protected packages off metered networks.
 case $(dev 'cmd netpolicy get restrict-background' | tr -d '\r') in
   *disabled*) printf '%-10s %-38s %s\n' warn data-saver "off, so protected packages use data freely; run lockdown.sh" ;;
@@ -213,6 +253,8 @@ fi
 
 if [[ $DNSFILTER == 0 ]]; then
   printf '%-10s %-38s %s\n' skip filter "not installed by choice"
+elif [[ -n $vpn_app ]]; then
+  printf '%-10s %-38s %s\n' skip filter "not installed: $vpn_app is the TV's VPN"
 else
   n=$(dev 'grep -c . /sdcard/Android/data/dnsfilter.android/files/PersonalDNSFilter/FILTERHOSTS.TXT 2>/dev/null' | tr -d '\r')
   if [[ $SDK -ge 30 ]] && ! [[ ${n:-0} -gt 0 ]] 2>/dev/null; then
@@ -252,6 +294,8 @@ if [[ $LAUNCHER == 0 ]]; then
   printf '%-10s %-38s %s\n' skip alarm "LAUNCHER=0, not checked"
 elif [[ $SDK -lt 28 ]]; then
   printf '%-10s %-38s %s\n' skip alarm "Fire OS 6 Keeper uses moveTaskToFront"
+elif [[ $HOME_APP == projectivy ]]; then
+  printf '%-10s %-38s %s\n' skip alarm "HOME_APP=projectivy; only dumbtv home uses it"
 else
   # dumbtv home needs this to answer HOME immediately; an update can drop it.
   if [[ $futurity == 0 ]]; then

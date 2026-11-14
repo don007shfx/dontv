@@ -7,8 +7,9 @@
 # resources load, so that form counts as bound too. Enabled components are
 # checked separately by verify.sh. This is a health check, not an identity proof.
 # Return 0 = bound, 1 = a recognized empty/other-service section, 2 = unknown.
+# $2 = projectivy checks Projectivy Launcher's service instead of dumbtv home's Guard.
 guard_bound() {
-  awk -v wanted="$1" '
+  awk -v wanted="$1" -v which="${2:-dumbtv}" '
     /User state\[/ { user = ""; inside = 0 }
     /attributes:\{id=[0-9]+[,}]/ {
       id = $0
@@ -22,8 +23,12 @@ guard_bound() {
     }
     inside {
       # Never accept a similarly named service or a label in Enabled/Binding.
-      if (index($0, "Service[label=dumbtv home button,")) found = 1
-      if (index($0, "Service[label=tv.dumbtv.home.Guard,")) found = 1
+      if (which == "dumbtv" && index($0, "Service[label=dumbtv home button,")) found = 1
+      if (which == "dumbtv" && index($0, "Service[label=tv.dumbtv.home.Guard,")) found = 1
+      # Projectivy names its service in its own language; its class name stands in
+      # while resources load, as for the Guard above.
+      if (which == "projectivy" && index($0, "Service[label=Projectivy")) found = 1
+      if (which == "projectivy" && index($0, "Service[label=com.spocky.projengmenu.services.ProjectivyAccessibilityService,")) found = 1
       if (index($0, "}")) { seen = 1; inside = 0 }
     }
     END { if (!seen || inside) exit 2; exit (found ? 0 : 1) }

@@ -4,7 +4,8 @@
 # unless it is named, and Prime Video and Alexa keep working.
 # Usage: ./scripts/configure.sh [--remove "pkg pkg"] [--keep "pkg pkg"] [--prime 0|1]
 #          [--alexa 0|1] [--launcher 0|1] [--dnsfilter 0|1] [--youtube 0|1]
-#          [--system-dns 0|1] [--dns-upstream "ip ip"] [-y] [--dry-run]
+#          [--system-dns 0|1] [--dns-upstream "ip ip"] [--home dumbtv|projectivy]
+#          [--framerate 0|1] [--quiet-home 0|1] [-y] [--dry-run]
 # A flag answers its question without asking; -y takes the default for the rest.
 # --dns-upstream is optional. Unset, the filter keeps using the router.
 set -uo pipefail
@@ -12,6 +13,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 KEEP_ARG=""; REMOVE_ARG=""; ALEXA_ARG=""; SYSTEM_DNS_ARG=""
 PRIME_ARG=""; LAUNCHER_ARG=""; DNSFILTER_ARG=""; YOUTUBE_ARG=""
+HOME_ARG=""; FRAMERATE_ARG=""; QUIET_HOME_ARG=""
 DNS_UPSTREAM_SET=0; DNS_UPSTREAM_ARG=""
 flag01() { case $2 in 0|1) ;; *) die "$1 takes 0 or 1, got '$2'" ;; esac; }
 while [[ $# -gt 0 ]]; do
@@ -24,6 +26,11 @@ while [[ $# -gt 0 ]]; do
     --dnsfilter)  flag01 "$1" "${2:-}"; DNSFILTER_ARG=$2; shift 2 ;;
     --youtube)    flag01 "$1" "${2:-}"; YOUTUBE_ARG=$2; shift 2 ;;
     --system-dns) flag01 "$1" "${2:-}"; SYSTEM_DNS_ARG=$2; shift 2 ;;
+    --home)
+      case ${2:-} in dumbtv|projectivy) ;; *) die "--home takes dumbtv or projectivy, got '${2:-}'" ;; esac
+      HOME_ARG=$2; shift 2 ;;
+    --framerate)  flag01 "$1" "${2:-}"; FRAMERATE_ARG=$2; shift 2 ;;
+    --quiet-home) flag01 "$1" "${2:-}"; QUIET_HOME_ARG=$2; shift 2 ;;
     --dns-upstream)
       [[ $# -ge 2 ]] || die '--dns-upstream takes resolver IPs; pass "" to clear them'
       DNS_UPSTREAM_SET=1; DNS_UPSTREAM_ARG=$2; shift 2 ;;
@@ -61,8 +68,17 @@ else
   PRIME=0; note "prime: its servers are blocked, so it will not play"
 fi
 ALEXA=$(answer "$ALEXA_ARG" "Keep Alexa and the remote's voice button? (no = Alexa and the microphone app are switched off)" 1)
-LAUNCHER=$(answer "$LAUNCHER_ARG" "Replace Amazon's home screen with dumbtv home (open source, no ads, no internet access)?" 1)
-DNSFILTER=$(answer "$DNSFILTER_ARG" "Run the DNS filter on the TV (blocks Amazon telemetry and stops automatic updates)?" 1)
+LAUNCHER=$(answer "$LAUNCHER_ARG" "Replace Amazon's home screen with dumbtv home or Projectivy Launcher (no ads)?" 1)
+# Both launchers are installed when LAUNCHER=1; this only picks which one HOME opens.
+# scripts/switch-home.sh changes it later without the rest of the questions.
+HOME_APP=dumbtv
+if [[ $LAUNCHER == 1 ]]; then
+  if [[ -n $HOME_ARG ]]; then HOME_APP=$HOME_ARG
+  elif [[ $(yn "HOME opens dumbtv home. Open Projectivy Launcher instead? (both stay installed; switch any time with switch-home.sh)" 0) == 1 ]]; then
+    HOME_APP=projectivy
+  fi
+fi
+DNSFILTER=$(answer "$DNSFILTER_ARG" "Run the DNS filter on the TV (blocks Amazon telemetry and stops automatic updates)? It is a VPN: with Proton VPN or another VPN app on the TV it is skipped" 1)
 SYSTEM_DNS=$(answer "$SYSTEM_DNS_ARG" "Fire OS 6 only: let system apps bypass the filter so the clock syncs? Amazon's system-user apps go unfiltered too" 0)
 # Default no: YouTube is the app people actually watch. scripts/youtube.sh is the
 # only thing that touches it, and only when this is 1.
@@ -71,6 +87,10 @@ if [[ $(answer "$YOUTUBE_ARG" "Replace the YouTube app with SmartTube (no ads, n
 else
   YOUTUBE=0; note "youtube: left alone"
 fi
+
+step "optional tweaks"
+FRAMERATE=$(answer "$FRAMERATE_ARG" "Match the TV's output to each video's frame rate (smooth 24p films; the screen blanks a second when it switches)?" 0)
+QUIET_HOME=$(answer "$QUIET_HOME_ARG" "Also switch off the generic autoplay keys on Amazon's home (video and sound when a tile is focused)?" 0)
 
 if [[ $ASSUME_YES == 0 && -z $REMOVE_ARG ]]; then
   note "Apps are only removed when you name them here. Names to package ids: data/apps.txt"
@@ -126,6 +146,7 @@ if [[ $DRY_RUN == 1 ]]; then
   note "REMOVE_EXTRA=\"$EXTRA\""
   note "KEEP_APPS=\"$KEEP\""
   note "PRIME=$PRIME ALEXA=$ALEXA LAUNCHER=$LAUNCHER DNSFILTER=$DNSFILTER SYSTEM_DNS=$SYSTEM_DNS YOUTUBE=$YOUTUBE"
+  note "HOME_APP=$HOME_APP FRAMERATE=$FRAMERATE QUIET_HOME=$QUIET_HOME"
   note "DNS_UPSTREAM=\"${DNS_UPSTREAM:-}\""
   exit 0
 fi
@@ -143,12 +164,15 @@ SYSTEM_DNS=$SYSTEM_DNS
 YOUTUBE=$YOUTUBE
 FILTER_AUTOSTART=$FILTER_AUTOSTART
 DNS_UPSTREAM="$DNS_UPSTREAM"
+HOME_APP=$HOME_APP
+FRAMERATE=$FRAMERATE
+QUIET_HOME=$QUIET_HOME
 EOF_CONF
 
 # Prove the file before anyone sources it.
 # shellcheck disable=SC1090
 source "$CONF"
-for v in PRIME ALEXA LAUNCHER DNSFILTER SYSTEM_DNS YOUTUBE FILTER_AUTOSTART; do
+for v in PRIME ALEXA LAUNCHER DNSFILTER SYSTEM_DNS YOUTUBE FILTER_AUTOSTART FRAMERATE QUIET_HOME; do
   case ${!v} in 0|1) ;; *) die "$v must be 0 or 1 in $CONF" ;; esac
 done
 
@@ -158,4 +182,5 @@ note "remove:  ${EXTRA:-nothing}"
 note "keep:    ${KEEP:-nothing extra}"
 note "prime=$PRIME alexa=$ALEXA launcher=$LAUNCHER dnsfilter=$DNSFILTER system_dns=$SYSTEM_DNS youtube=$YOUTUBE"
 note "dns upstream: ${DNS_UPSTREAM:-the router}"
+note "home=$([[ $LAUNCHER == 1 ]] && echo "$HOME_APP" || echo amazon) framerate=$FRAMERATE quiet_home=$QUIET_HOME"
 note "change any answer later by running this again"

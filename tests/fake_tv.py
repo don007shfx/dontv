@@ -124,6 +124,25 @@ elif command == 'cmd package help':
 elif words[:2] == ['pm', 'path']:
     if words[2] in apps:
         print(f'package:/system/app/{words[2]}.apk')
+elif command == 'pm list packages':
+    print('\n'.join(f'package:{p}' for p in apps))
+elif command == 'dumpsys deviceidle whitelist':
+    print('\n'.join(f'user,{p},10050' for p in state.get('idle', [])))
+elif words[:3] == ['dumpsys', 'deviceidle', 'whitelist'] and len(words) == 4:
+    idle = state.setdefault('idle', [])
+    name = words[3][1:]
+    if words[3].startswith('+') and name not in idle:
+        idle.append(name)
+    elif words[3].startswith('-') and name in idle:
+        idle.remove(name)
+    save()
+elif words[:3] == ['cmd', 'package', 'resolve-activity'] and words[-1] in state.get('homes', {}):
+    print('priority=0 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=false')
+    print(state['homes'][words[-1]])
+elif command == 'dumpsys accessibility' and 'a11y_dump' in state:
+    print(state['a11y_dump'])
+elif command == 'am get-current-user':
+    print(0)
 elif command == 'pm list packages -s':
     print('\n'.join(f'package:{p}' for p, a in apps.items() if a['system']))
 elif command == 'pm list packages -d':
@@ -164,4 +183,5 @@ elif words[:2] == ['monkey', '-p']:
 elif command == 'ps -A -o NAME':
     print('NAME')
 elif command == 'dumpsys activity activities':
-    print('  mResumedActivity: ActivityRecord{1 u0 tv.dumbtv.home/.Home t1}')
+    front = state.get('front', 'tv.dumbtv.home/.Home')
+    print(f'  mResumedActivity: ActivityRecord{{1 u0 {front} t1}}')

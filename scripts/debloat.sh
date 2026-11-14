@@ -10,11 +10,6 @@ need_supported_fireos
 load_conf
 check_keep_list
 
-settings_files() {
-  list_of "$(fos settings.txt)"
-  if [[ $ALEXA == 0 ]]; then list_of "$(fos settings.alexa.txt)"; fi
-}
-
 step "plan"
 note "platform   $(fireos_name) (sdk $SDK), lists from ${DATA#$ROOT/}/$(basename "$(dirname "$(fos packages.txt)")")"
 note "disable    $(cleanup_list | wc -l | tr -d ' ') Amazon ads, tracking and telemetry packages (reversible)"
@@ -22,6 +17,9 @@ if [[ $ALEXA == 1 ]]; then note "alexa      kept (ALEXA=1)"; else note "alexa   
 if [[ -n $REMOVE_EXTRA ]]; then note "your apps  removing only what you named: $REMOVE_EXTRA"
 else note "your apps  none removed"; fi
 note "settings   $(settings_files | wc -l | tr -d ' ')"
+while read -r name state _; do
+  note "$(printf '%-10s %s' "$name" "$state (opt-in)")"
+done < <(optin_tweaks)
 if [[ $DRY_RUN == 0 ]]; then
   confirm "Disable Amazon's ads and tracking on $SERIAL${REMOVE_EXTRA:+ and remove the apps you named}?" || die "cancelled"
 fi
@@ -33,6 +31,22 @@ needed_off() {
   local off
   off=$(dev 'pm list packages -d' | tr -d '\r' | sed -n 's/^package://p')
   list_of "$(fos never-disable.txt)" | awk '{print $1}' | grep -xF -f <(printf '%s\n' "$off") || true
+}
+
+# FRAMERATE and QUIET_HOME (dumbtv.conf). A tweak that is on is applied; one that is off
+# but was applied by an earlier run gets the TV's own value back.
+optin_step() {
+  local name state file ns key value
+  while read -r name state file; do
+    while read -r ns key value; do
+      if [[ $state == on ]]; then
+        optin_apply "$ns" "$key" "$value"
+        printf '  %-46s %s (%s)\n' "$key" "$value" "$name"
+      elif optin_undo "$ns" "$key"; then
+        printf '  %-46s %s\n' "$key" "put back ($name is off)"
+      fi
+    done < <(list_of "$file")
+  done < <(optin_tweaks)
 }
 
 if [[ $DRY_RUN == 1 ]]; then
@@ -52,6 +66,8 @@ if [[ $DRY_RUN == 1 ]]; then
     present "$p" || continue
     if is_system "$p"; then note "$p  would be disabled"; else note "$p  would be uninstalled"; fi
   done
+  step "opt-in tweaks (dry-run)"
+  optin_step
   note "dry-run: nothing was changed"
   exit 0
 fi
@@ -176,6 +192,9 @@ while read -r ns key value; do
   acmd settings put "$ns" "$key" "$value" >/dev/null
   printf '  %-46s %s\n' "$key" "$value"
 done < <(settings_files | sed 's/ = / /')
+
+step "opt-in tweaks"
+optin_step
 
 step "summary"
 note "disabled $disabledn · protected $protectedn · system-disabled $sysoff · absent $absent · suspect $suspect · apps uninstalled $removed · enabled again $enabledn"

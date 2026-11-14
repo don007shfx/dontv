@@ -21,8 +21,9 @@ restore_list() {
 step "plan"
 note "turn back on every package dumbtv can disable: the ads list, Alexa, apps you named, YouTube"
 note "clear app-ops and network blacklists"
-note "detach the DNS filter and the launcher hook"
+note "detach the DNS filter and the launcher hook (dumbtv home's or Projectivy's)"
 note "put back every setting from report/settings-before-*.txt, or the bundled defaults"
+note "put back what the opt-in tweaks (frame-rate matching, quiet home) replaced"
 note "the TV reboots when this finishes"
 if [[ $DRY_RUN == 0 ]]; then
   confirm "Restore Amazon defaults on $SERIAL?" || die "cancelled"
@@ -120,6 +121,19 @@ while read -r ns key value; do
   acmd settings put "$ns" "$key" "$want" >/dev/null
   printf '  %-46s %s\n' "$key" "$want"
 done < <(list_of "$(fos settings.restore.txt)" | sed 's/ = / /')
+
+step "opt-in tweaks"
+# Whatever FRAMERATE or QUIET_HOME changed, under any answers: each one kept the TV's
+# own value in dumbtv_was_<key>, and a key dumbtv never touched is left as it is.
+undone=0
+while read -r _ _ file; do
+  while read -r ns key _; do
+    if optin_undo "$ns" "$key"; then
+      printf '  %-46s %s\n' "$key" "put back"; undone=$((undone+1))
+    fi
+  done < <(list_of "$file")
+done < <(FRAMERATE=0 QUIET_HOME=0 optin_tweaks)
+[[ $undone -gt 0 ]] || note "none were applied"
 
 # The filter also starts from its own boot receiver, so clearing always_on_vpn_app
 # alone leaves it filtering after the reboot. Disabling it stops the VPN, which can

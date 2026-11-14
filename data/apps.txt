@@ -26,3 +26,5 @@ FastScreen                  com.creative.fastscreen.tv
 Appstore                    com.amazon.venezia
 Amazon Kids                 com.amazon.tahoe
 Amazon Luna                 com.amazon.spiderpork
+Projectivy Launcher         com.spocky.projengmenu
+Proton VPN                  ch.protonvpn.android

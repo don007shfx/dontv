@@ -25,7 +25,7 @@ class VerifyTests(unittest.TestCase):
                    alarms='min_futurity=0',
                    landed='tv.dumbtv.home/.Home',
                    away='com.amazon.tv.launcher/.ui.MainSettingsActivity',
-                   dnsfilter='0', launcher_package=None, extra=None, keep=''):
+                   dnsfilter='0', launcher_package=None, extra=None, keep='', home_app='dumbtv'):
         # Android 14's shape (the fake reports sdk 34): a per-task topResumedActivity=,
         # and the top-level ResumedActivity: after the task list.
         def resumed(app):
@@ -78,7 +78,8 @@ class VerifyTests(unittest.TestCase):
             data.write_text(json.dumps(replies))
             env = dict(os.environ, ADB=str(ROOT / 'tests/fake_verify_adb.py'),
                        SERIAL='test-tv', CONF=str(tmp / 'absent.conf'),
-                       DNSFILTER=dnsfilter, LAUNCHER=launcher, KEEP_APPS=keep, FAKE_ADB_LOG=str(log),
+                       DNSFILTER=dnsfilter, LAUNCHER=launcher, KEEP_APPS=keep, HOME_APP=home_app,
+                       FAKE_ADB_LOG=str(log),
                        FAKE_ADB_RESPONSES=str(data))
             result = subprocess.run(['bash', str(ROOT / 'scripts/verify.sh')],
                                     env=env, text=True, capture_output=True)
@@ -100,6 +101,38 @@ class VerifyTests(unittest.TestCase):
     @staticmethod
     def modern(bound, user=0):
         return f'User state[\n attributes:{{id={user}, flags=0}}\n Bound services:{{{bound}}}\n Enabled services:{{tv.dumbtv.home/.Guard}}\n Binding services:{{}}\n]\n'
+
+    PROJECTIVY_GUARD = 'com.spocky.projengmenu/com.spocky.projengmenu.services.ProjectivyAccessibilityService'
+
+    def test_projectivy_home_is_checked_with_the_home_key(self):
+        result, _ = self.run_verify('', component=self.PROJECTIVY_GUARD, home_app='projectivy',
+                                    landed='com.spocky.projengmenu/.ui.home.MainActivity', futurity='null')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("Projectivy's service enabled", result.stdout)
+        self.assertIn('HOME lands on com.spocky.projengmenu/', result.stdout)
+        self.assertRegex(result.stdout, r'skip +alarm +HOME_APP=projectivy')
+
+    def test_projectivy_chosen_but_home_lands_on_dumbtv_home_fails(self):
+        result, _ = self.run_verify('', component=self.PROJECTIVY_GUARD, home_app='projectivy')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertRegex(result.stdout, r'FAIL +home-key +HOME lands on tv.dumbtv.home')
+
+    def test_two_home_catchers_fail(self):
+        result, _ = self.run_verify(self.modern(LABEL),
+                                    component=f'tv.dumbtv.home/.Guard:{self.PROJECTIVY_GUARD}')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('dumbtv home and Projectivy both catch HOME', result.stdout)
+
+    def test_dns_checks_are_skipped_for_another_vpn_app(self):
+        result, calls = self.run_verify(self.modern(LABEL), dnsfilter='1', extra={
+            'pm path dnsfilter.android': {'out': ''},
+            'settings get secure always_on_vpn_app': {'out': 'null'},
+            'pm list packages': {'out': 'package:ch.protonvpn.android'},
+        })
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertRegex(result.stdout, r'skip +dns +another VPN app \(ch.protonvpn.android\)')
+        self.assertRegex(result.stdout, r'skip +filter')
+        self.assertFalse(any(c[3:4] == ['ping'] or ' '.join(c[3:]).startswith('ping') for c in calls))
 
     def test_bound_android14_while_another_app_is_foreground(self):
         result, _ = self.run_verify(self.modern(LABEL))

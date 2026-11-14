@@ -3,6 +3,9 @@
 #   ./launcher/install.sh            download the release APK (checksum-verified), install, take over HOME
 #   ./launcher/install.sh --build    build from source instead (needs a JDK and the Android SDK)
 #   ./launcher/install.sh --undo     hand HOME back to Amazon's launcher
+#   ./launcher/install.sh --projectivy  give HOME to Projectivy Launcher (already installed) instead
+# scripts/switch-home.sh picks between these three; the choice is kept on the TV in
+# settings global dumbtv_home, and --undo clears it.
 # Pick the device with ADB_SERIAL when more than one is connected.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -13,7 +16,10 @@ APK_URL=https://github.com/humblemuzzu/dumbtv/releases/download/launcher-v$VERSI
 
 PKG=tv.dumbtv.home
 GUARD=$PKG/$PKG.Guard
-OLD_GUARD=com.spocky.projengmenu/com.spocky.projengmenu.services.ProjectivyAccessibilityService
+PROJECTIVY=com.spocky.projengmenu
+# Projectivy's own HOME catcher. Only one catcher is ever enabled: set_guard removes this
+# one when it enables the Guard, and the Guard when it enables this one.
+OLD_GUARD=$PROJECTIVY/$PROJECTIVY.services.ProjectivyAccessibilityService
 ADB=${ADB:-adb}
 
 adb_() { "$ADB" ${ADB_SERIAL:+-s "$ADB_SERIAL"} "$@"; }
@@ -27,7 +33,8 @@ case ${1:-} in
   "") ;;
   --build) mode=build ;;
   --undo) mode=undo ;;
-  *) echo "usage: $0 [--build | --undo]" >&2; exit 2 ;;
+  --projectivy) mode=projectivy ;;
+  *) echo "usage: $0 [--build | --undo | --projectivy]" >&2; exit 2 ;;
 esac
 
 command -v "$ADB" >/dev/null || { echo "error: adb not found — install Android platform-tools" >&2; exit 1; }
@@ -74,16 +81,80 @@ sha256() {
   else shasum -a 256 "$1" | awk '{print $1}'; fi
 }
 
+# Projectivy's doze exemption, only when this script added it (FireDebloat's tip: a
+# launcher that dozes answers HOME late). One the owner set up before stays.
+projectivy_idle() {
+  local was list
+  if [[ $1 == on ]]; then
+    # Read whole, then searched: grep -q closing the pipe early fails it under pipefail.
+    list=$(sh_ dumpsys deviceidle whitelist 2>/dev/null | tr -d '\r' || true)
+    if ! grep -q ",$PROJECTIVY," <<<"$list"; then
+      sh_ dumpsys deviceidle whitelist +$PROJECTIVY >/dev/null 2>&1 || true
+      sh_ settings put global dumbtv_projectivy_idle 1 >/dev/null
+    fi
+    return 0
+  fi
+  was=$(sh_ settings get global dumbtv_projectivy_idle | tr -d '\r')
+  if [[ $was == 1 ]]; then
+    sh_ dumpsys deviceidle whitelist -$PROJECTIVY >/dev/null 2>&1 || true
+    sh_ settings delete global dumbtv_projectivy_idle >/dev/null
+  fi
+  return 0
+}
+
 if [[ $mode == undo ]]; then
   # force-stop also keeps the Fire OS 6 Keeper from restarting at the next boot.
   sh_ am force-stop $PKG >/dev/null 2>&1 || true
   sh_ appops set $PKG GET_USAGE_STATS default >/dev/null 2>&1 || true
   sh_ appops set $PKG AUTO_START default >/dev/null 2>&1 || true
   set_futurity off
+  # Removes Projectivy's catcher as well, so HOME really is Amazon's again.
   set_guard ""
   sh_ dumpsys deviceidle whitelist -$PKG >/dev/null 2>&1 || true
+  projectivy_idle off
+  sh_ settings delete global dumbtv_home >/dev/null 2>&1 || true
   sh_ am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null 2>&1 || true
   echo "HOME handed back to Amazon's launcher (dumbtv home stays installed: adb uninstall $PKG)"
+  exit 0
+fi
+
+if [[ $mode == projectivy ]]; then
+  if ! installed $PROJECTIVY; then
+    echo "error: Projectivy Launcher is not installed. Install it from the Amazon Appstore" >&2
+    echo "  (./scripts/switch-home.sh projectivy opens its page on the TV), then run this again" >&2
+    exit 3
+  fi
+  if [[ $dev_sdk -lt 28 ]]; then
+    echo "error: Fire OS 6 refuses third-party accessibility services, so Projectivy cannot take HOME;" >&2
+    echo "  dumbtv home's Keeper is the only way there (./launcher/install.sh)" >&2
+    exit 1
+  fi
+  # dumbtv home stays installed and keeps restarting the DNS filter, but stops catching
+  # HOME: its Guard goes, and so does the alarm setting only the Guard needs.
+  set_futurity off
+  set_guard "$OLD_GUARD"
+  projectivy_idle on
+  sh_ settings put global dumbtv_home projectivy >/dev/null
+  # shellcheck disable=SC1091
+  source ../scripts/accessibility.sh
+  user=$(sh_ am get-current-user | tr -d '\r')
+  bound=0
+  for _ in $(seq 1 15); do
+    if sh_ dumpsys accessibility | guard_bound "${user:-0}" projectivy; then bound=1; break; fi
+    sleep 1
+  done
+  if [[ $bound == 0 ]]; then
+    # Projectivy's label is its own, so an unknown dump is not proof of a failure;
+    # verify.sh presses HOME, which is.
+    echo "note: could not confirm Fire OS bound Projectivy's service; ./scripts/verify.sh presses HOME to check"
+  fi
+  echo "note: in Projectivy, Settings > General > Override current launcher must be on"
+  home=$(sh_ cmd package resolve-activity --brief -a android.intent.action.MAIN \
+    -c android.intent.category.HOME $PROJECTIVY 2>/dev/null | tr -d '\r' | grep -m1 "^$PROJECTIVY/" || true)
+  if [[ -n $home ]]; then start_home "$home"
+  else sh_ monkey -p $PROJECTIVY -c android.intent.category.LEANBACK_LAUNCHER 1 >/dev/null 2>&1 || true; fi
+  printf 'accessibility: %s\n' "$(sh_ settings get secure enabled_accessibility_services)"
+  echo "home: Projectivy Launcher (dumbtv home stays installed: ./scripts/switch-home.sh dumbtv)"
   exit 0
 fi
 
@@ -171,6 +242,7 @@ if [[ $dev_sdk -lt 28 ]]; then
     echo "error: dumbtv home is installed but not in front ($front)" >&2
     exit 1
   fi
+  sh_ settings put global dumbtv_home dumbtv >/dev/null
   echo "home: dumbtv (Keeper, no accessibility; sdk $dev_sdk)"
   exit 0
 fi
@@ -213,8 +285,10 @@ if [[ $bound == 0 ]]; then
   exit 1
 fi
 start_home $PKG/.Home
-if installed com.spocky.projengmenu; then
-  echo "note: Projectivy is still installed but no longer used — adb uninstall com.spocky.projengmenu"
+sh_ settings put global dumbtv_home dumbtv >/dev/null
+if installed $PROJECTIVY; then
+  echo "note: Projectivy is still installed, and HOME no longer opens it."
+  echo "  ./scripts/switch-home.sh projectivy gives HOME back to it"
 fi
 
 sleep 2

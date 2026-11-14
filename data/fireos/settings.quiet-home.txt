@@ -1,0 +1,11 @@
+# Opt-in (QUIET_HOME=1 in dumbtv.conf): no video or sound when a tile on Amazon's home
+# screen is focused. settings.txt already turns off the featured-row trailer
+# (com.amazon.tv.settings.featured_item_video_enabled) and debloat.sh disables
+# com.amazon.sneakpeek; these two cover builds whose home reads the generic keys
+# instead. Only matters while Amazon's home is the home screen (LAUNCHER=0) or shows
+# for a moment before dumbtv home or Projectivy takes over.
+# Applied by debloat.sh, which keeps the value it replaced on the TV; restore.sh and a
+# run with QUIET_HOME=0 put that value back.
+# From firetv-safe-debloat by roy9611 (MIT), see CREDITS.md.
+global auto_play_video 0
+global auto_play_audio 0
