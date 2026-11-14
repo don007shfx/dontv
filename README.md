@@ -198,7 +198,7 @@ changes only the home screen.
 
 | | |
 |---|---|
-| **Amazon packages** | About 50 disabled: ads, sponsored content, ACR, telemetry, crash and usage uploads, experiments, update nags. Disabled, never deleted. |
+| **Amazon packages** | 37 disabled: ads, sponsored content, ACR, telemetry, crash and usage uploads, experiments, update nags. Disabled, never deleted. |
 | **Protected packages** | The few Amazon will not let anyone disable lose background running; the DNS filter blocks what they upload. |
 | **Settings** | Ad tracking limited, interest-based ads off, usage reporting off, featured-row trailers off. |
 | **Optional settings** | Frame-rate matching and the generic autoplay settings, only if you chose them. The TV's previous values are saved on the TV and put back by restore. |
