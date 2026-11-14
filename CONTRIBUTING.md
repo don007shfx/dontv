@@ -87,6 +87,7 @@ CI runs these on every pull request. Run them before you push:
 python3 catalog/validate.py                 # catalog files
 python3 -m unittest discover -s tests -v    # scripts, against a pretend TV
 for f in scripts/*.sh launcher/*.sh; do bash -n "$f"; done
+shellcheck -S error scripts/*.sh launcher/*.sh   # warnings are worth a look too
 ./launcher/release-check.sh --manifest
 ```
 
