@@ -39,6 +39,15 @@ Ads, tracking and clutter out of your Fire TV. Your apps and HDMI inputs stay.</
 
 ---
 
+> **About this fork.** This is [humblemuzzu/dumbtv](https://github.com/humblemuzzu/dumbtv)
+> with a few opt-in extras adapted from
+> [firetv-safe-debloat](https://github.com/roy9611/firetv-safe-debloat),
+> [debloatfiretv](https://github.com/jannikloehr/debloatfiretv) and
+> [FireDebloat](https://github.com/krishkatyal/FireDebloat): a choice between dumbtv home
+> and Projectivy Launcher, frame-rate matching, a read-only health readout, a per-package
+> research table, Windows wrappers, and a DNS filter that steps aside for Proton VPN and
+> other VPN apps. See [What this fork adds](#what-this-fork-adds) and [CREDITS.md](CREDITS.md).
+
 ## The story
 
 I had a Fire TV Edition television that had become painful to use. Menus lagged,
@@ -98,8 +107,14 @@ adb connect <tv-ip>:5555        # press Allow on the TV
 ./scripts/verify.sh             # checks the result
 ```
 
-Works from macOS, Linux and Windows (WSL or Git Bash). The same steps, one at a
+Works from macOS, Linux and Windows (WSL or Git Bash). On Windows,
+[`windows\dumbtv`](windows/README.md) runs any script without opening Git Bash:
+`windows\dumbtv preflight`, `windows\dumbtv all`. The same steps, one at a
 time, are at [dumbtv.org/start](https://dumbtv.org/start).
+
+Every script that changes the TV takes `--dry-run`, which prints each command and
+changes nothing, and asks before its first change unless given `-y`. `preflight.sh`,
+`verify.sh`, `health.sh` and `switch-home.sh status` never change anything.
 
 **Rather not do it yourself?** [Tell us about your TV](https://dumbtv.org/help) and
 we will help.
@@ -112,10 +127,13 @@ we will help.
 |---|---|
 | Do you watch Prime Video? | yes: its servers stay reachable |
 | Keep Alexa and the voice button? | yes |
-| Replace Amazon's home screen with dumbtv home? | yes |
-| Run the DNS filter on the TV? | yes |
+| Replace Amazon's home screen with dumbtv home or Projectivy Launcher? | yes |
+| Open Projectivy Launcher instead of dumbtv home? (both stay installed) | no |
+| Run the DNS filter on the TV? | yes, skipped by itself when Proton VPN or another VPN app is on the TV |
 | Any apps you want removed? | none |
 | Replace the YouTube app with SmartTube (no ads, no Shorts)? | no |
+| Match the frame rate of each video (smooth 24p films)? | no |
+| Also switch off the generic autoplay keys on Amazon's home? | no |
 
 Your answers are saved in `dumbtv.conf`; run `configure.sh` again to change them.
 
@@ -237,6 +255,31 @@ one and what you can still do.
 **Your TV not here?** Run it, then `./scripts/contribute.sh`. It writes the report
 for you. [CONTRIBUTING.md](CONTRIBUTING.md) has the details.
 
+## What this fork adds
+
+All of it is opt-in or read-only, has `--dry-run` where it changes anything, and is
+undone by `./scripts/restore.sh`.
+
+| | From | What it is |
+|---|---|---|
+| **Pick the home screen** | FireDebloat's Projectivy guide | `./scripts/switch-home.sh [dumbtv\|projectivy\|amazon\|status]`, or `configure.sh --home projectivy`. dumbtv home and Projectivy both stay installed; only one of them catches HOME at a time. [docs/PROJECTIVY.md](docs/PROJECTIVY.md) |
+| **Frame-rate matching** | firetv-safe-debloat | `configure.sh --framerate 1`: Match Original Frame Rate, so 24p films play without judder. The TV's own value is kept on the TV and put back by restore. |
+| **Quiet home** | firetv-safe-debloat | `configure.sh --quiet-home 1`: also writes the generic `auto_play_video` / `auto_play_audio` keys. dumbtv already turns off the featured-row trailer and disables `com.amazon.sneakpeek` on every pass. |
+| **Health readout** | FireDebloat's vibecheck | `./scripts/health.sh`: RAM, memory pressure, storage, disabled packages, which packages an update switched back on since `debloat.sh` ran (from `report/debloat.txt`), settings that drifted, which launcher catches HOME, who holds the VPN. Changes nothing. |
+| **Package research** | debloatfiretv | [docs/PACKAGES.md](docs/PACKAGES.md): what each package does, what breaks without it, a tested verdict, and what dumbtv does with it, kept in step with `data/` by a test. |
+| **Windows** | firetv-safe-debloat's `.bat` files | [windows/](windows/README.md): `dumbtv.cmd` and `dumbtv.ps1` run any script through Git Bash. |
+| **VPN apps** | — | personalDNSfilter is a VPN and Android runs one at a time. With Proton VPN or another app from [data/vpn-apps.txt](data/vpn-apps.txt) installed, or any app holding always-on VPN, `dnsfilter.sh` warns and skips instead of pushing it aside. |
+
+On a Fire TV Stick 4K Max (AFTKRT, Fire OS 8) that already has Projectivy and Proton
+VPN, the matching run is:
+
+```sh
+./scripts/configure.sh --home projectivy --dnsfilter 0
+./scripts/all.sh --dry-run      # read it, then
+./scripts/all.sh
+./scripts/verify.sh
+```
+
 ## Undo
 
 ```sh
@@ -273,6 +316,10 @@ back from the Appstore.
 | [Why not replace the OS](docs/WHY-NOT-REPLACE-OS.md) | the locked boot chain |
 | [dumbtv home](launcher/README.md) | the launcher |
 | [Device catalog](catalog/README.md) | per-model notes |
+| [Packages](docs/PACKAGES.md) | each package, what breaks without it, and what dumbtv does |
+| [Projectivy](docs/PROJECTIVY.md) | Projectivy Launcher next to dumbtv home |
+| [Windows](windows/README.md) | running the scripts from Windows |
+| [Credits](CREDITS.md) | the projects this fork borrows from, and their licences |
 | [AGENTS.md](AGENTS.md) | instructions for coding agents |
 | [Press](docs/PRESS.md) | coverage |
 
@@ -404,6 +451,14 @@ the devices above because of you.
 [@Dlay2017](https://github.com/Dlay2017),
 [@githububub](https://github.com/githububub)
 
+This fork also thanks [roy9611](https://github.com/roy9611)
+([firetv-safe-debloat](https://github.com/roy9611/firetv-safe-debloat)),
+[Jannik Löhr](https://github.com/jannikloehr)
+([debloatfiretv](https://github.com/jannikloehr/debloatfiretv)) and
+[Krish Katyal](https://github.com/krishkatyal)
+([FireDebloat](https://github.com/krishkatyal/FireDebloat)), whose MIT-licensed work is
+adapted here; [CREDITS.md](CREDITS.md) lists what came from each.
+
 And to the projects dumbtv stands on:
 [personalDNSfilter](https://github.com/IngoZenz/personaldnsfilter) by Ingo Zenz,
 [HaGeZi's DNS blocklists](https://github.com/hagezi/dns-blocklists),
@@ -421,8 +476,10 @@ not affiliated with or endorsed by Amazon. Use it at your own risk.
 ## Licence
 
 Scripts, docs and the launcher are [MIT](LICENSE). The device catalog is
-[CC BY-SA 4.0](catalog/LICENSE).
+[CC BY-SA 4.0](catalog/LICENSE). Parts adapted from firetv-safe-debloat, debloatfiretv
+and FireDebloat keep their MIT notices in [CREDITS.md](CREDITS.md).
 
 dumbtv bundles none of these, but downloads them when you ask for them:
 personalDNSfilter (GPL-2.0) from F-Droid, HaGeZi's Amazon tracker list (GPL-3.0),
-and SmartTube (MIT) from its own releases.
+and SmartTube (MIT) from its own releases. Projectivy Launcher is never downloaded:
+when it is chosen and missing, its Amazon Appstore page opens on the TV.
