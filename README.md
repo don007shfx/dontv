@@ -50,19 +50,56 @@ Ads, tracking and clutter out of your Fire TV. Your apps and HDMI inputs stay.</
 
 ## The story
 
-I had a Fire TV Edition television that had become painful to use. Menus lagged,
-apps took ages to open, and the home screen was mostly ads. When I looked, it had
-129 MB of free memory, and much of the rest went to apps that started on their own
-and to Amazon services that report what you watch.
+**dontv** is a fork of [dumbtv](https://github.com/humblemuzzu/dumbtv) by
+[@humblemuzzu](https://github.com/humblemuzzu). It was built by combining dumbtv with
+features from three other Fire TV debloat repositories:
+[firetv-safe-debloat](https://github.com/roy9611/firetv-safe-debloat),
+[debloatfiretv](https://github.com/jannikloehr/debloatfiretv) and
+[FireDebloat](https://github.com/krishkatyal/FireDebloat).
 
-So I asked a coding agent to clean it up over ADB, and
-[posted what happened](https://x.com/DevMuzzammil/status/2111595814099591535). People
-asked for the scripts, so I put them here and
-[shared them](https://x.com/DevMuzzammil/status/2111912547318395338). Since then,
-owners of about twenty other TVs and sticks have run it and sent back what they
-found.
+dumbtv started when its author's Fire TV Edition television had become painful to use:
+menus lagged, apps took ages to open, the home screen was mostly ads, and only 129 MB
+of memory was free. He had a coding agent clean it up over ADB,
+[posted what happened](https://x.com/DevMuzzammil/status/2111595814099591535), and then
+[shared the scripts](https://x.com/DevMuzzammil/status/2111912547318395338). Owners of
+many other TVs and sticks have since run it and sent back what they found.
 
-dumbtv is that cleanup, made safe to run on someone else's TV.
+> **Note:** the web links in this README (dumbtv.org, the badges, the press links and
+> the release links) still point to the original dumbtv site and repository, not to
+> dontv.
+
+A huge thank you to [@humblemuzzu](https://github.com/humblemuzzu) for an excellent
+repository. Its careful snapshots, full restore, never-disable lists, device catalog and
+dumbtv home launcher are the foundation everything here is built on.
+
+### What dontv adds, and where it came from
+
+- **From [firetv-safe-debloat](https://github.com/roy9611/firetv-safe-debloat)** by
+  [@roy9611](https://github.com/roy9611):
+  - optional frame-rate matching
+  - quieter home-screen autoplay settings
+  - Windows `.cmd` and PowerShell wrappers so everything runs from a Windows PC
+
+  Thank you, @roy9611!
+- **From [debloatfiretv](https://github.com/jannikloehr/debloatfiretv)** by
+  [@jannikloehr](https://github.com/jannikloehr):
+  - the per-package research table in [docs/PACKAGES.md](docs/PACKAGES.md), showing
+    what each package does, what breaks without it, and a verdict
+  - the dry-run-first approach
+
+  Thank you, @jannikloehr!
+- **From [FireDebloat](https://github.com/krishkatyal/FireDebloat)** by
+  [@krishkatyal](https://github.com/krishkatyal):
+  - the read-only health check (`scripts/health.sh`), based on its vibecheck
+  - the Projectivy Launcher notes behind the launcher switch (`scripts/switch-home.sh`),
+    which lets you choose dumbtv home, Projectivy or the stock Amazon home screen
+
+  Thank you, @krishkatyal!
+- **New in dontv:** the DNS filter steps aside when Proton VPN or another VPN app is
+  installed, so the two don't fight over Android's single VPN slot.
+
+All four projects are MIT licensed. Their notices are kept in [CREDITS.md](CREDITS.md).
+See [What this fork adds](#what-this-fork-adds) for commands and details.
 
 ## What it does
 
