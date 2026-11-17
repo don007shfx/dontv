@@ -61,7 +61,24 @@ apps = state['packages']
 settings = state.setdefault('settings', {})
 words = command.split()
 
-if words[:1] == ['settings']:
+if words[:2] == ['settings', 'list']:
+    # One or more `settings list <ns>` joined with ';', as key=value lines.
+    for part in command.split(';'):
+        ns = part.split()[-1]
+        for key, value in settings.items():
+            if key.startswith(ns + '/'):
+                print(f"{key.split('/', 1)[1]}={value}")
+elif words[:2] == ['cmd', 'netpolicy'] and words[2:3] == ['get']:
+    print('Restrict background status: ' + ('enabled' if state.get('saver') else 'disabled'))
+elif words[:2] == ['cmd', 'netpolicy'] and words[2:4] == ['list', 'restrict-background-blacklist']:
+    print('Restrict background blacklisted UIDs: ' + ' '.join(str(u) for u in state.get('blacklist', [])))
+elif words[:2] == ['cmd', 'netpolicy'] and words[2:4] == ['set', 'restrict-background']:
+    state['saver'] = words[4] == 'true'
+    save()
+elif words[:2] == ['cmd', 'netpolicy'] and words[2:4] == ['add', 'restrict-background-blacklist']:
+    state.setdefault('blacklist', []).append(int(words[4]))
+    save()
+elif words[:1] == ['settings']:
     verb, rest = words[1], words[2:]
     if verb == 'put' and len(rest) == 3:
         settings[f'{rest[0]}/{rest[1]}'] = '' if rest[2] == '""' else rest[2]
@@ -171,6 +188,8 @@ elif words[:4] == ['pm', 'uninstall', '--user', '0']:
     print('Success')
 elif words[:2] == ['dumpsys', 'package']:
     print('    userId=10050')
+    if words[2:] and apps.get(words[2], {}).get('persistent'):
+        print('    pkgFlags=[ SYSTEM HAS_CODE PERSISTENT ALLOW_CLEAR_USER_DATA ]')
     if words[2:] and words[2] in state.get('versions', {}):
         print(f"    versionCode={state['versions'][words[2]]} minSdk=21 targetSdk=29")
 elif words[:1] == ['cat'] and len(words) == 2 and words[1] in state.get('files', {}):
@@ -178,6 +197,10 @@ elif words[:1] == ['cat'] and len(words) == 2 and words[1] in state.get('files',
 elif words[:1] == ['cat'] and len(words) == 2:
     print(f'cat: {words[1]}: No such file or directory', file=sys.stderr)
     sys.exit(1)
+elif words[:3] == ['cmd', 'package', 'query-activities'] and 'android.intent.category.HOME' in words:
+    # Activities that answer HOME, as package/class lines.
+    for p in state.get('home_activities', []):
+        print(f'  {p}/.Home')
 elif words[:2] == ['monkey', '-p']:
     print('Events injected: 1')
 elif command == 'ps -A -o NAME':

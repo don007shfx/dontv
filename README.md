@@ -96,6 +96,14 @@ dumbtv home launcher are the foundation everything here is built on.
     which lets you choose dontv home, Projectivy or the stock Amazon home screen
 
   Thank you, @krishkatyal!
+- **From [couch-tv](https://github.com/Seagey/couch-tv)** by
+  [@Seagey](https://github.com/Seagey):
+  - the live boot-safety check before anything is disabled, based on its `needed()`
+  - restore that turns back on only what dontv itself switched off
+  - repair that puts back only what a Fire OS update undid (`scripts/repair.sh`)
+  - `com.amazon.kso.blackbird`, from its privacy list
+
+  Thank you, @Seagey!
 - **New in dontv:** the DNS filter steps aside when Proton VPN or another VPN app is
   installed, so the two don't fight over Android's single VPN slot.
 
@@ -151,6 +159,7 @@ adb connect <tv-ip>:5555        # press Allow on the TV
 ./scripts/all.sh                # asks before each step, reboots the TV twice
 ./scripts/verify.sh             # checks the result
 ./scripts/health.sh             # memory, storage, launcher, VPN; changes nothing
+./scripts/repair.sh --dry-run   # after a Fire OS update: what it undid, and the fix
 ```
 
 **On Windows** (needs [Git for Windows](https://git-scm.com/download/win)), the
@@ -163,6 +172,7 @@ windows\dumbtv configure
 windows\dumbtv all --dry-run
 windows\dumbtv all
 windows\dumbtv verify
+windows\dumbtv repair --dry-run
 ```
 
 Every script that changes the TV takes `--dry-run`, which prints each command and
@@ -198,7 +208,7 @@ changes only the home screen.
 
 | | |
 |---|---|
-| **Amazon packages** | 37 disabled: ads, sponsored content, ACR, telemetry, crash and usage uploads, experiments, update nags. Disabled, never deleted. |
+| **Amazon packages** | 38 disabled: ads, sponsored content, ACR, telemetry, crash and usage uploads, experiments, update nags. Disabled, never deleted. |
 | **Protected packages** | The few Amazon will not let anyone disable lose background running; the DNS filter blocks what they upload. |
 | **Settings** | Ad tracking limited, interest-based ads off, usage reporting off, featured-row trailers off. |
 | **Optional settings** | Frame-rate matching and the generic autoplay settings, only if you chose them. The TV's previous values are saved on the TV and put back by restore. |
@@ -267,6 +277,9 @@ undone by `./scripts/restore.sh`.
 | **Frame-rate matching** | firetv-safe-debloat | `configure.sh --framerate 1`: Match Original Frame Rate, so 24p films play without judder. The TV's own value is kept on the TV and put back by restore. |
 | **Quiet home** | firetv-safe-debloat | `configure.sh --quiet-home 1`: also writes the generic `auto_play_video` / `auto_play_audio` keys. dontv already turns off the featured-row trailer and disables `com.amazon.sneakpeek` on every pass. |
 | **Health readout** | FireDebloat's vibecheck | `./scripts/health.sh`: RAM, memory pressure, storage, disabled packages, which packages an update switched back on since `debloat.sh` ran (from `report/debloat.txt`), settings that drifted, which launcher catches HOME, who holds the VPN. Changes nothing. |
+| **Repair after an update** | couch-tv's daily repair | `./scripts/repair.sh` (or `windows\dumbtv repair`): puts back only what an update undid: packages switched on again, drifted privacy and opt-in settings, the lockdown and the DNS filter's VPN slot if they were set up (never over Proton VPN or another VPN app). Shows the plan, asks unless `-y`, takes `--dry-run`, no reboot. Run by hand, so no computer has to stay on. |
+| **Boot-safety guard** | couch-tv's `needed()` | Before `debloat.sh` disables anything, it asks the TV: a package that answers HOME, runs as a persistent process, or looks like setup, the remote, voice, the keyboard, HDMI-CEC or TV inputs is skipped and logged as `boot-guard`, even when a list names it. |
+| **Restore only what it changed** | couch-tv's undo list | `report/debloat.txt` now records which TV it belongs to (`ro.serialno`). With that record, `restore.sh` turns back on only what the last pass disabled, and `debloat.sh` leaves alone a listed package someone else had already switched off. Without it, both behave as before. |
 | **Package research** | debloatfiretv | [docs/PACKAGES.md](docs/PACKAGES.md): what each package does, what breaks without it, a tested verdict, and what dontv does with it, kept in step with `data/` by a test. |
 | **Windows** | firetv-safe-debloat's `.bat` files | [windows/](windows/README.md): `dumbtv.cmd` and `dumbtv.ps1` run any script through Git Bash. |
 | **VPN apps** | — | personalDNSfilter is a VPN and Android runs one at a time. With Proton VPN or another app from [data/vpn-apps.txt](data/vpn-apps.txt) installed, or any app holding always-on VPN, `dnsfilter.sh` warns and skips instead of pushing it aside. |
@@ -287,7 +300,8 @@ VPN, the matching run is:
 ./scripts/restore.sh
 ```
 
-It re-enables every package, clears the app and network rules, puts back the
+It re-enables the packages the last pass disabled on that TV (every listed package
+if `report/debloat.txt` is missing or belongs to another TV), clears the app and network rules, puts back the
 settings the TV had before (from the snapshot `preflight.sh` takes), removes the
 filter and gives HOME back to Amazon. An app you asked to have uninstalled comes
 back from the Appstore.
@@ -459,7 +473,8 @@ This fork also thanks [roy9611](https://github.com/roy9611)
 [Jannik Löhr](https://github.com/jannikloehr)
 ([debloatfiretv](https://github.com/jannikloehr/debloatfiretv)) and
 [Krish Katyal](https://github.com/krishkatyal)
-([FireDebloat](https://github.com/krishkatyal/FireDebloat)), whose MIT-licensed work is
+([FireDebloat](https://github.com/krishkatyal/FireDebloat)) and
+[Seagey](https://github.com/Seagey) ([couch-tv](https://github.com/Seagey/couch-tv)), whose MIT-licensed work is
 adapted here; [CREDITS.md](CREDITS.md) lists what came from each.
 
 And to the projects dumbtv and dontv build on:
@@ -480,8 +495,8 @@ maintained or endorsed by dumbtv's authors. Use it at your own risk.
 ## Licence
 
 Scripts, docs and the launcher are [MIT](LICENSE). The device catalog is
-[CC BY-SA 4.0](catalog/LICENSE). Parts adapted from firetv-safe-debloat, debloatfiretv
-and FireDebloat keep their MIT notices in [CREDITS.md](CREDITS.md).
+[CC BY-SA 4.0](catalog/LICENSE). Parts adapted from firetv-safe-debloat, debloatfiretv,
+FireDebloat and couch-tv keep their MIT notices in [CREDITS.md](CREDITS.md).
 
 dontv is a fork of [dumbtv](https://github.com/humblemuzzu/dumbtv). The original
 copyright notice in [LICENSE](LICENSE) (Copyright (c) 2026 dumbtv contributors) stays

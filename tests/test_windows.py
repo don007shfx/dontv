@@ -40,7 +40,7 @@ class WindowsWrapperTest(unittest.TestCase):
     def test_help_lists_the_scripts(self):
         result = self.run_ps("help")
         self.assertEqual(result.returncode, 0, result.stderr)
-        for name in ("preflight", "all", "switch-home", "health", "restore"):
+        for name in ("preflight", "all", "switch-home", "health", "restore", "repair"):
             self.assertIn(name, result.stdout)
         self.assertNotIn("lib,", result.stdout)
 

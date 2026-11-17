@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Undoes the package, app-op, network-policy, launcher and DNS changes.
 # Apps that were uninstalled from /data have to be reinstalled from the store.
+# Packages: when report/debloat.txt is this TV's record (its #device line matches), only
+# what that pass disabled is switched back on, so a package someone else had switched
+# off stays off. Without that record it falls back to every list, as before.
 # Usage: ./scripts/restore.sh [--dry-run] [-y]
 set -uo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -8,8 +11,18 @@ parse_flags "$@"
 need_device
 load_conf
 
-# Everything debloat.sh or youtube.sh may have switched off, under any answers.
+LOG="$REPORT/debloat.txt"
+FROM_REPORT=0
+report_is_ours "$LOG" && FROM_REPORT=1
+
+# Everything debloat.sh or youtube.sh may have switched off, under any answers; or, with
+# this TV's report, what the last pass disabled (plus Amazon's YouTube app when YOUTUBE=1, which youtube.sh handles).
 restore_list() {
+  if [[ $FROM_REPORT == 1 ]]; then
+    { awk -F'\t' '$2 == "disabled" {print $1}' "$LOG"
+      if [[ ${YOUTUBE:-0} == 1 ]]; then echo com.amazon.firetv.youtube; fi; } | awk 'NF && !seen[$0]++'
+    return 0
+  fi
   {
     list_of "$(fos packages.txt)"
     list_of "$(fos alexa.txt)"
@@ -19,7 +32,11 @@ restore_list() {
 }
 
 step "plan"
-note "turn back on every package dumbtv can disable: the ads list, Alexa, apps you named, YouTube"
+if [[ $FROM_REPORT == 1 ]]; then
+  note "turn back on what the last pass disabled on this TV ($(restore_list | wc -l | tr -d ' ') packages, from ${LOG#"$ROOT"/})"
+else
+  note "no record of the last pass on this TV in ${LOG#"$ROOT"/}: turn back on every package dontv can disable"
+fi
 note "clear app-ops and network blacklists"
 note "detach the DNS filter and the launcher hook (dumbtv home's or Projectivy's)"
 note "put back every setting from report/settings-before-*.txt, or the bundled defaults"
@@ -85,7 +102,9 @@ fi
 step "packages that were only starved"
 if [[ -f $REPORT/debloat.txt ]]; then
   while IFS=$'\t' read -r p state rest; do
-    [[ -z ${p:-} ]] && continue
+    [[ -z ${p:-} || $p == \#* ]] && continue
+    # Left alone by the pass: nothing of ours to clear.
+    case $state in boot-guard|already-off) continue ;; esac
     bg_on "$p"
     uid=$(uid_of "$p")
     [[ -n $uid ]] && acmd cmd netpolicy remove restrict-background-blacklist "$uid" >/dev/null 2>&1

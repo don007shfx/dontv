@@ -49,6 +49,24 @@ optin_step() {
   done < <(optin_tweaks)
 }
 
+# What the last pass on this TV disabled (report/debloat.txt, when it names this TV). With
+# that record, a listed package that is already off but not in it was switched off by
+# someone else (by hand, or by Amazon), so it is not ours: left alone, and restore.sh
+# will not switch it on. Without a record, every listed package is treated as before.
+PREV_LOG="$REPORT/debloat.txt"
+PREV_OURS=""; HAVE_PREV=0
+if report_is_ours "$PREV_LOG"; then
+  HAVE_PREV=1
+  PREV_OURS=$(awk -F'\t' '$2 == "disabled" {print $1}' "$PREV_LOG")
+fi
+OFF_NOW=$(dev 'pm list packages -d' | tr -d '\r' | sed -n 's/^package://p')
+not_ours_off() {
+  [[ $HAVE_PREV == 1 ]] || return 1
+  grep -qxF "$1" <<<"$OFF_NOW" || return 1
+  ! grep -qxF "$1" <<<"$PREV_OURS"
+}
+load_boot_homes
+
 if [[ $DRY_RUN == 1 ]]; then
   step "packages the TV needs (dry-run)"
   needed=$(needed_off)
@@ -58,12 +76,16 @@ if [[ $DRY_RUN == 1 ]]; then
   for p in $(cleanup_list); do
     protected_by_policy "$p" && { note "$p  SKIP (never-disable list)"; continue; }
     keep_pkg "$p" && { note "$p  SKIP (keep list)"; continue; }
-    present "$p" && note "$p  would be disabled"
+    present "$p" || continue
+    if boot_needed "$p"; then note "$p  SKIP (boot guard: $BOOT_WHY)"; continue; fi
+    if not_ours_off "$p"; then note "$p  already off before dontv, left as it is"; continue; fi
+    note "$p  would be disabled"
   done
   step "apps you named (dry-run)"
   for p in $REMOVE_EXTRA; do
     protected_by_policy "$p" && { note "$p  SKIP (never-disable list)"; continue; }
     present "$p" || continue
+    if boot_needed "$p"; then note "$p  SKIP (boot guard: $BOOT_WHY)"; continue; fi
     if is_system "$p"; then note "$p  would be disabled"; else note "$p  would be uninstalled"; fi
   done
   step "opt-in tweaks (dry-run)"
@@ -74,7 +96,8 @@ fi
 
 mkdir -p "$REPORT"
 log="$REPORT/debloat.txt"
-: > "$log"
+printf '#device\t%s\n' "$(device_id)" > "$log"
+GUARDED=""
 
 # Prints the outcome of `pm disable-user` for $1 and logs it.
 disable_pkg() {
@@ -102,7 +125,7 @@ disable_pkg() {
 }
 
 step "Amazon packages"
-removed=0; disabledn=0; protectedn=0; sysoff=0; absent=0; suspect=0
+removed=0; disabledn=0; protectedn=0; sysoff=0; absent=0; suspect=0; guarded=0; notours=0
 for p in $(cleanup_list); do
   if protected_by_policy "$p"; then
     printf '  %-46s SKIP (never-disable list)\n' "$p"; continue
@@ -112,6 +135,14 @@ for p in $(cleanup_list); do
   fi
   if ! present "$p"; then
     printf '  %-46s absent\n' "$p"; absent=$((absent+1)); continue
+  fi
+  if boot_needed "$p"; then
+    printf '  %-46s SKIP (boot guard: %s)\n' "$p" "$BOOT_WHY"; guarded=$((guarded+1))
+    printf '%s\tboot-guard\t%s\n' "$p" "$BOOT_WHY" >> "$log"; GUARDED="$GUARDED $p"; continue
+  fi
+  if not_ours_off "$p"; then
+    printf '  %-46s already off before dontv, left as it is\n' "$p"; notours=$((notours+1))
+    printf '%s\talready-off\n' "$p" >> "$log"; continue
   fi
   disable_pkg "$p"
 done
@@ -139,6 +170,10 @@ if [[ -n $REMOVE_EXTRA ]]; then
     if ! present "$p"; then
       printf '  %-46s absent\n' "$p"; continue
     fi
+    if boot_needed "$p"; then
+      printf '  %-46s SKIP (boot guard: %s)\n' "$p" "$BOOT_WHY"; guarded=$((guarded+1))
+      printf '%s\tboot-guard\t%s\n' "$p" "$BOOT_WHY" >> "$log"; GUARDED="$GUARDED $p"; continue
+    fi
     # The TV's own apps are disabled so restore.sh can bring them back; store apps
     # are uninstalled and come back from the store.
     if is_system "$p"; then
@@ -160,6 +195,7 @@ for p in $(cleanup_list); do
   printf '%s\n' "$live" | grep -qx "$p" || continue
   protected_by_policy "$p" && continue
   keep_pkg "$p" && continue
+  case " $GUARDED " in *" $p "*) continue ;; esac
   uid=$(uid_of "$p")
   bg_off "$p"
   acmd am force-stop "$p" >/dev/null
@@ -197,7 +233,7 @@ step "opt-in tweaks"
 optin_step
 
 step "summary"
-note "disabled $disabledn · protected $protectedn · system-disabled $sysoff · absent $absent · suspect $suspect · apps uninstalled $removed · enabled again $enabledn"
+note "disabled $disabledn · protected $protectedn · system-disabled $sysoff · absent $absent · suspect $suspect · apps uninstalled $removed · enabled again $enabledn · boot guard $guarded · already off, not ours $notours"
 note "log: ${log#$ROOT/}"
 [[ $suspect -gt 0 ]] && note "SUSPECT entries need a human look before continuing"
 
