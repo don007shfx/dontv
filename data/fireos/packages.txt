@@ -15,6 +15,7 @@ com.amazon.privacypassservice          # ad-token service
 com.amazon.shoptv.client               # shopping on the TV
 com.amazon.shoptv.firetv.client        # "Amazon Live Shopping" tile
 com.amazon.sneakpeek                   # autoplaying promos
+com.amazon.kso.blackbird               # syncs the sponsored "Special Offers" banners
 com.amazon.media.recommendations       # sponsored rows
 com.amazon.systemnotices               # Amazon promo notices
 com.amazon.tv.website_launcher         # promo web pages

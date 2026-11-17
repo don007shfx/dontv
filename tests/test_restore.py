@@ -14,10 +14,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RestoreTest(unittest.TestCase):
-    def run_restore(self, ignores_reboot=False, settings=None, svc_refused=False):
+    def run_restore(self, ignores_reboot=False, settings=None, svc_refused=False, extra=None,
+                    report=None, props=None, flags=("-y",)):
         packages = {
             "dnsfilter.android": {"system": False, "enabled": True},
             "com.amazon.tv.acr": {"system": True, "enabled": False},
+            **(extra or {}),
         }
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
@@ -31,7 +33,10 @@ class RestoreTest(unittest.TestCase):
             }
             state.write_text(json.dumps({"packages": packages, "settings": hooked,
                                          "ignores_reboot": ignores_reboot,
-                                         "svc_refused": svc_refused}))
+                                         "svc_refused": svc_refused, "props": props or {}}))
+            if report is not None:
+                (tmp / "report").mkdir()
+                (tmp / "report" / "debloat.txt").write_text(report)
             log = tmp / "commands.log"
             log.touch()
             (tmp / "dumbtv.conf").write_text("")
@@ -39,7 +44,7 @@ class RestoreTest(unittest.TestCase):
                        FAKE_TV_STATE=str(state), FAKE_TV_LOG=str(log),
                        CONF=str(tmp / "dumbtv.conf"), REPORT=str(tmp / "report"), BOOT_SECONDS="0",
                        PM_WRITE_SECONDS="0")
-            result = subprocess.run(["bash", str(ROOT / "scripts" / "restore.sh"), "-y"],
+            result = subprocess.run(["bash", str(ROOT / "scripts" / "restore.sh"), *flags],
                                     env=env, capture_output=True, text=True, timeout=120)
             return result, log.read_text().splitlines(), json.loads(state.read_text())
 
@@ -99,6 +104,43 @@ class RestoreTest(unittest.TestCase):
         self.assertEqual(commands.count("reboot"), 1)
         self.assertIn("did not restart", result.stdout + result.stderr)
         self.assertNotIn("booted", result.stdout)
+
+    # Two listed packages are off: com.amazon.tv.acr by dontv's last pass, com.amazon.hedwig
+    # by someone else. With this TV's record only the first comes back.
+    BOTH_OFF = {"com.amazon.hedwig": {"system": True, "enabled": False}}
+
+    def test_only_what_the_last_pass_disabled_comes_back(self):
+        result, commands, state = self.run_restore(
+            extra=self.BOTH_OFF, props={"ro.serialno": "G4N0TEST"},
+            report="#device\tG4N0TEST\ncom.amazon.tv.acr\tdisabled\ncom.amazon.hedwig\talready-off\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(state["packages"]["com.amazon.tv.acr"]["enabled"])
+        self.assertFalse(state["packages"]["com.amazon.hedwig"]["enabled"])
+        self.assertNotIn("pm enable --user 0 com.amazon.hedwig", commands)
+        self.assertIn("what the last pass disabled on this TV (1 packages", result.stderr)
+
+    def test_without_a_record_every_list_comes_back(self):
+        result, _, state = self.run_restore(extra=self.BOTH_OFF)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(state["packages"]["com.amazon.tv.acr"]["enabled"])
+        self.assertTrue(state["packages"]["com.amazon.hedwig"]["enabled"])
+        self.assertIn("no record of the last pass on this TV", result.stderr)
+
+    def test_another_tvs_record_falls_back_to_the_lists(self):
+        result, _, state = self.run_restore(
+            extra=self.BOTH_OFF, props={"ro.serialno": "LIVINGROOM"},
+            report="#device\tBEDROOM\ncom.amazon.tv.acr\tdisabled\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(state["packages"]["com.amazon.hedwig"]["enabled"])
+
+    def test_dry_run_with_a_record_changes_nothing(self):
+        result, commands, state = self.run_restore(
+            extra=self.BOTH_OFF, props={"ro.serialno": "G4N0TEST"}, flags=("-y", "--dry-run"),
+            report="#device\tG4N0TEST\ncom.amazon.tv.acr\tdisabled\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(state["packages"]["com.amazon.tv.acr"]["enabled"])
+        self.assertFalse([c for c in commands if c.startswith(("pm enable", "settings put"))])
+        self.assertIn("[dry-run] pm enable --user 0 com.amazon.tv.acr", result.stdout)
 
 
 if __name__ == "__main__":

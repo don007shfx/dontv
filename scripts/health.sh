@@ -68,7 +68,7 @@ for p in $(cleanup_list); do
 done
 if [[ -n $back ]]; then
   row "enabled again" "${back# }"
-  row "" "an update switched these back on; ./scripts/debloat.sh -y turns them off again"
+  row "" "an update switched these back on; ./scripts/repair.sh turns them off again"
   attention=1
 else
   row "enabled again" "none"

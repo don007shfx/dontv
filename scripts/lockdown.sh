@@ -32,6 +32,12 @@ for p in $(list_of "$(fos protected.txt)"); do
   printf '  %-46s ops off, metered data blocked (uid %s)\n' "$p" "$uid"
 done
 
+# A record that the lockdown is set up on this TV, so repair.sh puts it back after an update.
+if [[ $DRY_RUN == 0 ]]; then
+  mkdir -p "$REPORT"
+  printf '#device\t%s\n' "$(device_id)" > "$REPORT/lockdown.txt"
+fi
+
 step "verify"
 if [[ $DRY_RUN == 1 ]]; then
   note "skipped in dry-run"

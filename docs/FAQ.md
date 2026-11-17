@@ -67,9 +67,23 @@ Yes. Disabled packages, the filter and the home screen all come back on their ow
 
 **Does it survive an Amazon update?**
 Updates do not arrive while the DNS filter runs: it blocks the update servers. If
-an update does land, it can re-enable packages and reset settings; run
-`./scripts/all.sh` again. To update on purpose, run `./scripts/restore.sh`, let
+an update does land, it can re-enable packages and reset settings. Run
+`./scripts/repair.sh --dry-run` to see what it undid, then `./scripts/repair.sh` to
+put back only that (Windows: `windows\dumbtv repair`). It asks first, does not reboot
+the TV, and leaves Proton VPN or another VPN app alone. `./scripts/all.sh` still works
+too; it redoes the whole pass. To update on purpose, run `./scripts/restore.sh`, let
 the TV update, then `./scripts/all.sh`.
+
+**What is the difference between repair and running everything again?**
+`repair.sh` changes only what drifted and keeps your home screen and filter list as
+they are. `all.sh` asks the questions again (unless `dumbtv.conf` exists), reinstalls
+the filter and the launcher, and reboots twice.
+
+**Can it turn off something my TV needs?**
+Before each package is disabled, `debloat.sh` checks the TV itself: anything that
+answers HOME, runs as a persistent process, or looks like setup, the remote, voice,
+the keyboard, HDMI-CEC or TV inputs is skipped, even when a list names it. The check
+is adapted from couch-tv (see [CREDITS.md](../CREDITS.md)).
 
 **Does it survive a factory reset?**
 No. A factory reset undoes everything, including this. Run the scripts again.

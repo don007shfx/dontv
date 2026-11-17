@@ -158,7 +158,9 @@ the owner grants that in its own prompt.
 
 `./scripts/health.sh` is a read-only readout (RAM, storage, packages an update switched
 back on, drifted settings, the HOME catcher, the VPN owner). Use it after the TV updated
-itself, before deciding to re-run anything.
+itself, before deciding to re-run anything. `./scripts/repair.sh --dry-run` then shows
+what it would put back (only what drifted); `./scripts/repair.sh -y` does it, without a
+reboot.
 
 From Windows, `windows\dumbtv <script> [flags]` runs the same scripts through Git
 Bash ([windows/README.md](windows/README.md)).
@@ -214,7 +216,7 @@ path. Use the table below; do not disable more packages.
 | HOME_APP=projectivy and HOME still lands on Amazon's home | in Projectivy: Settings > General > Override current launcher on; then `./scripts/verify.sh` |
 | `dnsfilter.sh` says another VPN app is on the TV | expected with Proton VPN and the like; record `--dnsfilter 0`. Never uninstall their VPN to make room |
 | Amazon's home shows for ~5 s before dumbtv home | `./scripts/launcher.sh -y` (an update reset the alarm setting) |
-| `verify.sh` warns `enabled again` or `back to Amazon's values` | an update undid part of the cleanup: `./scripts/debloat.sh -y` |
+| `verify.sh` warns `enabled again` or `back to Amazon's values` | an update undid part of the cleanup: `./scripts/repair.sh -y` (or `./scripts/debloat.sh -y`) |
 | `verify.sh` warns `off, but the TV needs them` (Prime Video gone, phone app will not pair) | an older dumbtv disabled them: `./scripts/debloat.sh -y` |
 | The TV wakes from standby on Amazon's home | `./scripts/launcher.sh -y` (dumbtv home 1.10 and later stay in front) |
 | `verify.sh` warns `data-saver off` | `./scripts/lockdown.sh -y` |

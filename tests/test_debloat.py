@@ -32,7 +32,8 @@ STORE_APPS = ["com.netflix.ninja", "com.amazon.firetv.youtube", "org.videolan.vl
 class DebloatTest(unittest.TestCase):
     AMAZON_DREAM = "com.amazon.ftv.screensaver/.app.services.ScreensaverService"
 
-    def run_debloat(self, conf="", *flags, basic_dream=True, extra=None):
+    def run_debloat(self, conf="", *flags, basic_dream=True, extra=None, home_activities=None,
+                    props=None, previous=None):
         packages = {p: {"system": True, "enabled": True} for p in CLEANUP + ALEXA + USER_APPS}
         packages.update(extra or {})
         if basic_dream:
@@ -45,7 +46,11 @@ class DebloatTest(unittest.TestCase):
             tmp = Path(tmp)
             state = tmp / "state.json"
             state.write_text(json.dumps({"packages": packages, "settings": {
-                "secure/screensaver_components": self.AMAZON_DREAM}}))
+                "secure/screensaver_components": self.AMAZON_DREAM},
+                "home_activities": home_activities or [], "props": props or {}}))
+            if previous is not None:
+                (tmp / "report").mkdir()
+                (tmp / "report" / "debloat.txt").write_text(previous)
             log = tmp / "commands.log"
             log.touch()
             (tmp / "dumbtv.conf").write_text(conf)
@@ -139,6 +144,79 @@ class DebloatTest(unittest.TestCase):
         self.run_debloat(extra={"com.amazon.firebat": {"system": True, "enabled": True}})
         self.assertFalse(any(c.startswith("pm enable") for c in self.commands), self.commands)
         self.assertIn("none of them is off", self.output)
+
+    def test_boot_guard_skips_a_persistent_package(self):
+        victim = CLEANUP[0]
+        disabled, _, _ = self.run_debloat(extra={victim: {"system": True, "enabled": True,
+                                                          "persistent": True}})
+        self.assertNotIn(victim, disabled)
+        self.assertIn(f"{victim}\tboot-guard\tpersistent process", self.report)
+        self.assertIn("SKIP (boot guard: persistent process)", self.output)
+
+    def test_boot_guard_skips_a_package_that_answers_home(self):
+        conf = 'REMOVE_EXTRA="com.example.myhome"\n'
+        disabled, uninstalled, _ = self.run_debloat(
+            conf, extra={"com.example.myhome": {"system": True, "enabled": True}},
+            home_activities=["com.example.myhome", "com.amazon.tv.launcher"])
+        self.assertNotIn("com.example.myhome", disabled | uninstalled)
+        self.assertIn("boot guard: answers HOME", self.output)
+
+    def test_boot_guard_refuses_remote_voice_and_keyboard_by_name(self):
+        named = ["com.example.remotecontrol", "com.example.voice.search", "com.example.inputmethod",
+                 "com.example.hdmicec", "com.example.setupwizard"]
+        conf = 'REMOVE_EXTRA="' + " ".join(named) + '"\n'
+        disabled, uninstalled, _ = self.run_debloat(
+            conf, extra={p: {"system": True, "enabled": True} for p in named})
+        self.assertEqual((disabled | uninstalled) & set(named), set())
+
+    def test_boot_guard_in_the_dry_run(self):
+        victim = CLEANUP[0]
+        disabled, _, _ = self.run_debloat("", "--dry-run", extra={
+            victim: {"system": True, "enabled": True, "persistent": True}})
+        self.assertEqual(disabled, set())
+        self.assertIn(f"{victim}  SKIP (boot guard: persistent process)", self.output)
+
+    def test_no_list_entry_trips_the_name_rules(self):
+        # The guard is a safety net: every reviewed entry must still get through it.
+        names = []
+        for platform in ("fireos", "fireos6"):
+            for name in ("packages.txt", "alexa.txt", "user-apps.txt"):
+                path = ROOT / "data" / platform / name
+                if path.exists():
+                    names += entries(path)
+        script = 'source scripts/lib.sh; for p in "$@"; do boot_needed_name "$p" && echo "$p $BOOT_WHY"; done; true'
+        out = subprocess.run(["bash", "-c", script, "x", *names], cwd=ROOT,
+                             capture_output=True, text=True, check=True).stdout
+        self.assertEqual(out, "")
+
+    def test_the_report_names_the_tv(self):
+        self.run_debloat(props={"ro.serialno": "G4N0TEST"})
+        self.assertEqual(self.report[0], "#device\tG4N0TEST")
+
+    def test_a_package_someone_else_switched_off_is_not_ours(self):
+        # With this TV's record, a listed package that is already off but was not disabled
+        # by the last pass is left alone and logged as already-off.
+        victim, mine = CLEANUP[0], CLEANUP[1]
+        previous = f"#device\tG4N0TEST\n{mine}\tdisabled\n"
+        disabled, _, _ = self.run_debloat(
+            extra={victim: {"system": True, "enabled": False},
+                   mine: {"system": True, "enabled": False}},
+            props={"ro.serialno": "G4N0TEST"}, previous=previous)
+        self.assertNotIn(victim, disabled)
+        self.assertIn(mine, disabled)
+        self.assertIn(f"{victim}\talready-off", self.report)
+
+    def test_without_a_record_already_off_packages_are_disabled_as_before(self):
+        victim = CLEANUP[0]
+        disabled, _, _ = self.run_debloat(extra={victim: {"system": True, "enabled": False}})
+        self.assertIn(victim, disabled)
+
+    def test_another_tvs_record_is_ignored(self):
+        victim = CLEANUP[0]
+        disabled, _, _ = self.run_debloat(
+            extra={victim: {"system": True, "enabled": False}},
+            props={"ro.serialno": "LIVINGROOM"}, previous="#device\tBEDROOM\n")
+        self.assertIn(victim, disabled)
 
     def test_dry_run_changes_nothing(self):
         disabled, uninstalled, settings = self.run_debloat("", "--dry-run")

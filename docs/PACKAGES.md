@@ -39,7 +39,7 @@ in [AGENTS.md](../AGENTS.md) before adding one.
 | `com.amazon.neo.minerva.logcat` | Logcat collection for Minerva telemetry | None noticed | safe | disabled |
 | `com.amazon.connectivitydiag` | Network diagnostics | None noticed | safe | disabled |
 | `com.amazon.hybridadidservice` | Advertising ID service | Apps get no Amazon ad ID | safe | disabled |
-| `com.amazon.kso.blackbird` | "Special Offers" ads | Fewer ads | safe | — |
+| `com.amazon.kso.blackbird` | "Special Offers" ads | Fewer ads | safe | disabled |
 | `com.amazon.sneakpeek` | Auto-playing trailer previews on the home screen | No autoplay previews | safe | disabled |
 | `com.amazon.shoptv.client` | Shopping overlays | None noticed | safe | disabled |
 | `com.amazon.tv.ftvambient` | Ambient Experience (art/widgets when idle) | No ambient mode | safe | — |
@@ -120,6 +120,27 @@ in [AGENTS.md](../AGENTS.md) before adding one.
 | `com.amazon.hedwig` | safe ("Amazon News") | disabled | dumbtv's list records it as watch-time and engagement reporting. Both agree it can go. |
 | `com.amazon.alexadirectivebrokerservice`, `com.amazon.alexa.datastore.app` | keep (Alexa backend, used by Matter) | ALEXA=0 | Kept by default. Turning Alexa off takes them too, which also stops the TV's Matter controller. |
 | `com.amazon.ftv.screensaver` | keep (protects a panel from burn-in) | if named | Only when named, and `debloat.sh` then points the TV at Android's own screensaver (when the TV has one) so it does not just go to sleep at the timeout. |
+
+## Looked at and left on, and why
+
+Packages other lists switch off, or that look like tracking from the name, which dontv
+deliberately does not disable on every pass. Each was looked at; before moving one onto
+`packages.txt`, read "A TV the lists do not cover" in [AGENTS.md](../AGENTS.md).
+
+| Package | Seen as | Why dontv leaves it on |
+|---|---|---|
+| `com.amazon.spiderpork` | "metrics transport" (couch-tv's privacy list, older dumbtv wording) | It is Amazon Luna on current builds: it owns the `luna:` scheme and Luna's app links and has a launcher activity (`catalog/devices/fireos-amazon-aftss.yaml`). Disabling it removes Luna, so it is in `user-apps.txt` and goes only when named. |
+| `com.amazon.tv.ftvambient` | Ambient Experience (art and widgets when idle) | A feature people choose to use, not telemetry. Not on any list; turn it off in Settings > Display & Sounds > Ambient Experience. |
+| `com.amazon.recess`, `com.amazon.naatyam` | games hub, India content stub | Safe on debloatfiretv's TV, but not on the TVs dontv's lists were checked on. A package that is not on the device is never added. |
+| `com.amazon.device.logmanager`, `com.amazon.adep`, `com.fireos.usagestats.proxy` | log manager, analytics pipeline, usage stats | Fire OS refuses `pm disable-user` for them on debloatfiretv's TV. They are not in `protected.txt` yet because no dontv run has confirmed them; the DNS filter is what stops their uploads. |
+| `com.amazon.client.metrics`, `com.amazon.metrics` | metrics clients | Seen on one TCL build only (`catalog/devices/fireos-tcl-aftche92d8.yaml`) and not checked anywhere else. |
+| `com.amazon.vizzini`, `com.amazon.storm.lightning.tutorial` | Alexa voice UI, tutorial | Never touched: see the table above (the remote warning, and the phone app's pairing PIN). |
+
+Two notes on packages that *are* disabled: `com.amazon.kso.blackbird` (added after
+couch-tv's privacy list) stops the sponsored-banner ad sync, but the home screen can
+still fetch and show a banner by itself; and `com.amazon.tigris` and
+`com.amazon.media.recommendations` are absent on several models (see the device
+catalog), which `debloat.sh` reports as `absent`, not as a failure.
 
 ## Notes from the same research
 

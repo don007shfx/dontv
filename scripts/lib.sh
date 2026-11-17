@@ -132,6 +132,68 @@ other_vpn_app() {
   return 0
 }
 
+# Live boot-safety guard, run on the TV before anything is disabled. The lists are
+# reviewed by hand, but a build can ship a package under a name the lists never saw,
+# or an entry can be a typo away from something the TV needs. Adapted from couch-tv's
+# needed() in tv-home/tools/apply.sh (MIT, Copyright (c) 2026 Seagey; see CREDITS.md),
+# with Fire OS names, and with its broad com.android.* and *remote* rules narrowed so
+# reviewed entries (com.android.traceur, device_remote_config_sync_service) still go.
+# Amazon's helpers that set up *other* devices (whisperjoin wifiprovisioner, the FFS
+# provisionee client on Fire OS 6) are deliberately not matched by the setup rule.
+# boot_needed PKG returns 0, with the reason in BOOT_WHY, when PKG must stay on.
+BOOT_HOMES=""
+BOOT_HOMES_READ=0
+load_boot_homes() {
+  BOOT_HOMES=$(dev 'cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.HOME' \
+    | tr -d '\r' | grep / | sed 's|^ *||; s|/.*||' | sort -u)
+  BOOT_HOMES_READ=1
+}
+boot_needed_name() {
+  case $1 in
+    android|com.android.systemui|com.android.shell|com.android.settings|com.android.phone|\
+com.android.packageinstaller|com.android.permissioncontroller|com.android.networkstack*|\
+com.android.providers.*|com.android.externalstorage|*webview*)
+      BOOT_WHY="core Android" ;;
+    *setupwizard*|*.setup|*oobe*|com.android.provision|*.provision|*provisioning*)
+      BOOT_WHY="first-run setup" ;;
+    *.launcher|*.launcher.*|*tvlauncher*|*launcherx*|*homestarter*)
+      BOOT_WHY="home screen" ;;
+    *bluetooth*|*autopair*|*.ble|*.ble.*|*blepa*|*rcu*|*remotecontrol*|*tv.remote*|*remote.service*|\
+*keypolicy*|*inputdevice*)
+      BOOT_WHY="remote" ;;
+    *voice*|*katniss*|*vizzini|*vizzini.service*)
+      BOOT_WHY="voice" ;;
+    *cec*|*hdmi*)  # *cec* also catches devicecontrol
+      BOOT_WHY="HDMI-CEC control" ;;
+    *inputmethod*|*.ime|*.ime.*)
+      BOOT_WHY="keyboard" ;;
+    *providers.tv*|*tvinput*|*tvprovider*|*watchnext*|*listings*)
+      BOOT_WHY="TV inputs / Watch Next" ;;
+    *) return 1 ;;
+  esac
+  return 0
+}
+boot_needed() {
+  BOOT_WHY=""
+  boot_needed_name "$1" && return 0
+  [[ $BOOT_HOMES_READ == 1 ]] || load_boot_homes
+  if [[ -n $BOOT_HOMES ]] && grep -qxF "$1" <<<"$BOOT_HOMES"; then BOOT_WHY="answers HOME"; return 0; fi
+  if dev "dumpsys package $1" | grep -qE '(pkgFlags|flags)=\[.*PERSISTENT'; then
+    # shellcheck disable=SC2034  # read by the callers
+    BOOT_WHY="persistent process"; return 0
+  fi
+  return 1
+}
+
+# Which TV a report/ file belongs to: ro.serialno, the same over USB and Wi-Fi.
+device_id() { dev1 getprop ro.serialno; }
+# report_is_ours FILE: FILE exists and its "#device" line names this TV. A report from
+# another TV (one folder, several rooms) or from before the line existed does not count.
+report_is_ours() {
+  [[ -f $1 ]] || return 1
+  [[ $(head -1 "$1" | tr -d '\r') == "#device	$(device_id)" ]]
+}
+
 # What debloat.sh disables: the ads and tracking list, plus Alexa only with ALEXA=0.
 cleanup_list() {
   list_of "$(fos packages.txt)" | awk '{print $1}'

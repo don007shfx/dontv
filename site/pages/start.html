@@ -27,7 +27,8 @@ cd dontv</code></pre>
 ./scripts/all.sh --dry-run      # every command the pass would send; changes nothing
 ./scripts/all.sh                # asks before each step, reboots the TV twice
 ./scripts/verify.sh             # checks the result
-./scripts/health.sh             # memory, storage, launcher, VPN; changes nothing</code></pre>
+./scripts/health.sh             # memory, storage, launcher, VPN; changes nothing
+./scripts/repair.sh --dry-run   # after a Fire OS update: what it undid, and the fix</code></pre>
     <h3>Windows</h3>
     <p>The wrapper runs the same scripts through Git Bash, so you don't have to open it. Run these from the <code>dontv</code> folder in Command Prompt or PowerShell:</p>
 <pre><code>adb connect &lt;tv-ip&gt;:5555
@@ -35,7 +36,8 @@ windows\dumbtv preflight
 windows\dumbtv configure
 windows\dumbtv all --dry-run
 windows\dumbtv all
-windows\dumbtv verify</code></pre>
+windows\dumbtv verify
+windows\dumbtv repair --dry-run</code></pre>
     <p class="muted">The wrapper keeps its original name, <code>dumbtv</code>, so the commands match the files in the repository. <a href="{{REPO}}/blob/main/windows/README.md">More on Windows</a>.</p>
     <h3>Or ask a coding agent</h3>
     <p>Open Claude Code, Codex, Cursor, Gemini or similar in the <code>dontv</code> folder and say: <i>"Clean up my Fire TV. Its IP address is …"</i>. It follows the repository's <a href="{{REPO}}/blob/main/AGENTS.md">AGENTS.md</a> and asks before changing anything.</p>
